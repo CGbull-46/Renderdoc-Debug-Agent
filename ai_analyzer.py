@@ -5,7 +5,6 @@ Uses AI models to analyze rendering issues and provide intelligent insights
 
 import os
 import json
-import base64
 from typing import Dict, List, Any, Optional
 from openai import OpenAI
 

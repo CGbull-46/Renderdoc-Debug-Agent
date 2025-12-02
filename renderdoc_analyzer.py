@@ -6,7 +6,6 @@ Handles the interaction with RenderDoc Python API to extract data from .rdc file
 import os
 import sys
 import json
-import struct
 from typing import Dict, List, Any, Optional
 
 

@@ -8,6 +8,10 @@ import tempfile
 from renderdoc_analyzer import RenderDocAnalyzer
 from ai_analyzer import AIAnalyzer
 
+# Test constants
+RDC_SIGNATURE = b'RDC\x00'
+RDC_HEADER_SIZE = 1000
+
 
 class TestRenderDocAnalyzer(unittest.TestCase):
     """Test RenderDoc analyzer functionality."""
@@ -25,7 +29,7 @@ class TestRenderDocAnalyzer(unittest.TestCase):
         # Create a temporary file to simulate an RDC file
         with tempfile.NamedTemporaryFile(suffix='.rdc', delete=False) as f:
             # Write some dummy data
-            f.write(b'RDC\x00' + b'\x00' * 1000)
+            f.write(RDC_SIGNATURE + b'\x00' * RDC_HEADER_SIZE)
             temp_path = f.name
         
         try:
@@ -98,7 +102,7 @@ class TestIntegration(unittest.TestCase):
         """Test the full analysis pipeline."""
         # Create a temporary RDC file
         with tempfile.NamedTemporaryFile(suffix='.rdc', delete=False) as f:
-            f.write(b'RDC\x00' + b'\x00' * 5000)
+            f.write(RDC_SIGNATURE + b'\x00' * 5000)
             temp_path = f.name
         
         try:

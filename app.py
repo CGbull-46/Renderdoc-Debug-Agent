@@ -5,9 +5,7 @@ This application allows users to upload .rdc files and uses AI to analyze render
 
 import os
 import json
-import base64
-from io import BytesIO
-from flask import Flask, request, render_template, jsonify, send_from_directory
+from flask import Flask, request, render_template, jsonify
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
@@ -95,4 +93,5 @@ def health():
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    debug_mode = os.getenv('FLASK_ENV', 'production') == 'development'
+    app.run(host='0.0.0.0', port=port, debug=debug_mode)
