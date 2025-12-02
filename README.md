@@ -2,6 +2,8 @@
 
 🔍 AI-Powered Rendering Issue Analysis & Shader Debugging Tool
 
+[English](README.md) | [中文文档](README_CN.md)
+
 An intelligent agent that uses RenderDoc Python API combined with AI models to automatically analyze .rdc capture files, identify rendering issues (like NaN flashes, shader errors), and provide actionable fix recommendations.
 
 ## Features
