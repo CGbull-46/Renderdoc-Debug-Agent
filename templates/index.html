@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RenderDoc Debug Agent - AI-Powered Rendering Analysis</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            margin-bottom: 30px;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 8px;
+            padding: 60px 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9ff;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f1ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e8e9ff;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 64px;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.2em;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+        }
+
+        .results.active {
+            display: block;
+        }
+
+        .result-section {
+            margin-bottom: 30px;
+        }
+
+        .result-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .issue-item {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+
+        .issue-item.high {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+        }
+
+        .issue-item.medium {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+        }
+
+        .issue-item.low, .issue-item.info {
+            background: #d1ecf1;
+            border-left-color: #17a2b8;
+        }
+
+        .recommendation-item {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .analysis-text {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 6px;
+            border-left: 4px solid #dc3545;
+        }
+
+        .file-info {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .file-info strong {
+            color: #667eea;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .badge.high {
+            background: #dc3545;
+            color: white;
+        }
+
+        .badge.medium {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .badge.low, .badge.info {
+            background: #17a2b8;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 RenderDoc Debug Agent</h1>
+            <p>AI-Powered Rendering Issue Analysis & Shader Debugging</p>
+        </div>
+
+        <div class="card">
+            <div id="uploadSection">
+                <div class="upload-area" id="dropZone">
+                    <div class="upload-icon">📁</div>
+                    <div class="upload-text">Drop your .rdc file here or click to browse</div>
+                    <div class="upload-hint">Maximum file size: 100MB</div>
+                    <input type="file" id="fileInput" accept=".rdc">
+                </div>
+                <div style="text-align: center;">
+                    <button class="btn" id="uploadBtn" disabled>Analyze Capture</button>
+                </div>
+            </div>
+
+            <div class="loading" id="loadingSection">
+                <div class="spinner"></div>
+                <p>Analyzing your RenderDoc capture...</p>
+                <p style="color: #666; margin-top: 10px;">This may take a few moments</p>
+            </div>
+
+            <div class="results" id="resultsSection">
+                <div class="file-info" id="fileInfo"></div>
+                
+                <div class="result-section">
+                    <h3>📊 AI Analysis</h3>
+                    <div class="analysis-text" id="aiAnalysis"></div>
+                </div>
+
+                <div class="result-section" id="issuesSection">
+                    <h3>⚠️ Issues Detected</h3>
+                    <div id="issuesList"></div>
+                </div>
+
+                <div class="result-section" id="recommendationsSection">
+                    <h3>💡 Recommendations</h3>
+                    <div id="recommendationsList"></div>
+                </div>
+
+                <div class="result-section" id="shaderFixesSection">
+                    <h3>🔧 Shader Fixes</h3>
+                    <div id="shaderFixesList"></div>
+                </div>
+
+                <div style="text-align: center; margin-top: 30px;">
+                    <button class="btn" onclick="location.reload()">Analyze Another File</button>
+                </div>
+            </div>
+
+            <div class="error" id="errorSection" style="display: none;">
+                <strong>Error:</strong> <span id="errorMessage"></span>
+            </div>
+        </div>
+
+        <div style="text-align: center; color: white; margin-top: 20px; opacity: 0.8;">
+            <p>Powered by RenderDoc Python API + AI</p>
+        </div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const uploadSection = document.getElementById('uploadSection');
+        const loadingSection = document.getElementById('loadingSection');
+        const resultsSection = document.getElementById('resultsSection');
+        const errorSection = document.getElementById('errorSection');
+
+        let selectedFile = null;
+
+        // Click to select file
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        // File selection
+        fileInput.addEventListener('change', (e) => {
+            handleFileSelect(e.target.files[0]);
+        });
+
+        // Drag and drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFileSelect(e.dataTransfer.files[0]);
+        });
+
+        function handleFileSelect(file) {
+            if (!file) return;
+
+            if (!file.name.endsWith('.rdc')) {
+                showError('Please select a valid .rdc file');
+                return;
+            }
+
+            selectedFile = file;
+            dropZone.querySelector('.upload-text').textContent = `Selected: ${file.name}`;
+            uploadBtn.disabled = false;
+        }
+
+        uploadBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            uploadSection.style.display = 'none';
+            loadingSection.classList.add('active');
+            errorSection.style.display = 'none';
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'Analysis failed');
+                }
+
+                displayResults(result);
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                loadingSection.classList.remove('active');
+            }
+        });
+
+        function displayResults(result) {
+            const { filename, renderdoc_analysis, ai_insights } = result;
+
+            // File info
+            document.getElementById('fileInfo').innerHTML = `
+                <strong>File:</strong> ${filename}<br>
+                ${renderdoc_analysis.file_size_mb ? `<strong>Size:</strong> ${renderdoc_analysis.file_size_mb} MB<br>` : ''}
+                ${renderdoc_analysis.api ? `<strong>Graphics API:</strong> ${renderdoc_analysis.api}` : ''}
+            `;
+
+            // AI Analysis
+            const analysisText = ai_insights.analysis || 'No analysis available';
+            document.getElementById('aiAnalysis').textContent = analysisText;
+
+            // Issues
+            const issues = ai_insights.issues_detected || [];
+            if (issues.length > 0) {
+                document.getElementById('issuesList').innerHTML = issues.map(issue => `
+                    <div class="issue-item ${issue.severity || 'medium'}">
+                        <strong>${issue.type || 'Issue'}</strong>
+                        ${issue.severity ? `<span class="badge ${issue.severity}">${issue.severity}</span>` : ''}
+                        <p>${issue.description || issue}</p>
+                    </div>
+                `).join('');
+            } else {
+                document.getElementById('issuesSection').style.display = 'none';
+            }
+
+            // Recommendations
+            const recommendations = ai_insights.recommendations || [];
+            if (recommendations.length > 0) {
+                document.getElementById('recommendationsList').innerHTML = recommendations.map(rec => `
+                    <div class="recommendation-item">${typeof rec === 'string' ? rec : rec.description}</div>
+                `).join('');
+            } else {
+                document.getElementById('recommendationsSection').style.display = 'none';
+            }
+
+            // Shader fixes
+            const shaderFixes = ai_insights.shader_fixes || [];
+            if (shaderFixes.length > 0) {
+                document.getElementById('shaderFixesList').innerHTML = shaderFixes.map(fix => `
+                    <div style="margin-bottom: 20px;">
+                        <strong>${fix.description || 'Shader Fix'}</strong>
+                        <div class="code-block">${escapeHtml(fix.code)}</div>
+                    </div>
+                `).join('');
+            } else {
+                document.getElementById('shaderFixesSection').style.display = 'none';
+            }
+
+            resultsSection.classList.add('active');
+        }
+
+        function showError(message) {
+            errorSection.style.display = 'block';
+            document.getElementById('errorMessage').textContent = message;
+            uploadSection.style.display = 'block';
+            resultsSection.classList.remove('active');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
