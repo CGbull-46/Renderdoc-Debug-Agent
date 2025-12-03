@@ -1,0 +1,3 @@
+[submodule "rdc"]
+	path = rdc
+	url = https://github.com/CGbull-46/renderdoc-mcp-folk
