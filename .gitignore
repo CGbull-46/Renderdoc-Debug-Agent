@@ -1,0 +1,49 @@
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyi
+.mypy_cache/
+.pytest_cache/
+.venv/
+venv/
+ENV/
+.env
+.env.*
+
+# Node/TypeScript artifacts
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+*.tsbuildinfo
+.eslintcache
+
+# Build outputs
+/frontend/build/
+/frontend/dist/
+/frontend/.cache/
+/frontend/.parcel-cache/
+/frontend/.next/
+/frontend/.turbo/
+/frontend/.vite/
+/orchestrator/dist/
+/orchestrator/build/
+/orchestrator/.cache/
+/dist/
+/build/
+/coverage/
+/.cache/
+
+# Project runtime data & secrets
+/captures/
+/agent/temp/
+/config/openrouter.json
+*.log

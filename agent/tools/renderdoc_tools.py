@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
-from ..renderdoc_adapter import RenderdocModule
+from ..renderdoc_adapter import RenderdocModule, load_renderdoc
 
 
 class CaptureError(RuntimeError):
@@ -56,8 +57,8 @@ class RenderdocCapture:
 class RenderdocTools:
     """Expose deterministic RenderDoc operations suitable for MCP tool wiring."""
 
-    def __init__(self, rd: RenderdocModule):
-        self.rd = rd
+    def __init__(self, rd: Optional[RenderdocModule] = None):
+        self.rd: RenderdocModule = rd or load_renderdoc()
 
     def iterate_actions(self, capture_path: str) -> List[Dict[str, Any]]:
         """Return the flattened action tree for a capture."""
@@ -120,6 +121,56 @@ class RenderdocTools:
             cap.controller.SaveTexture(save_data, output_path)
             return output_path
 
+    def analyze_nan_inf(self, capture_path: str, texture_id: int, x: int, y: int, sample: int = 0) -> List[Dict[str, Any]]:
+        """Analyze NaN/Inf anomalies in pixel history for a given location."""
+
+        with RenderdocCapture(self.rd, Path(capture_path)) as cap:
+            history = cap.controller.PixelHistory(self.rd.module.ResourceId(texture_id), x, y, sample)
+            anomalies: List[Dict[str, Any]] = []
+            for mod in history:
+                colour = mod.postMod.colour
+                if any(math.isnan(c) or math.isinf(c) for c in colour):
+                    anomalies.append(
+                        {
+                            "eventId": mod.eventId,
+                            "color": [float(v) for v in colour],
+                        }
+                    )
+            return anomalies
+
+    def geometry_anomalies(self, capture_path: str, event_id: int, mesh_slot: int = 0) -> List[Dict[str, Any]]:
+        """Detect basic geometric anomalies (invalid positions / UV out of range)."""
+
+        with RenderdocCapture(self.rd, Path(capture_path)) as cap:
+            cap.controller.SetFrameEvent(event_id, True)
+            vsout = cap.controller.GetPostVSData(self.rd.module.MeshDataStage.VSOut, mesh_slot)
+            issues: List[Dict[str, Any]] = []
+            for i in range(vsout.numIndices):
+                pos = vsout.positions[i]
+                x, y, z, w = pos.x, pos.y, pos.z, pos.w
+                if any(math.isnan(v) or math.isinf(v) for v in (x, y, z)) or any(
+                    abs(v) > 1e4 for v in (x, y, z)
+                ):
+                    issues.append(
+                        {
+                            "index": i,
+                            "position": [float(x), float(y), float(z), float(w)],
+                            "reason": "invalid_position",
+                        }
+                    )
+                if vsout.numTexCoords > 0:
+                    uv = vsout.texcoords[0][i]
+                    u, v = uv.x, uv.y
+                    if u < 0 or u > 1 or v < 0 or v > 1:
+                        issues.append(
+                            {
+                                "index": i,
+                                "uv": [float(u), float(v)],
+                                "reason": "uv_out_of_range",
+                            }
+                        )
+            return issues
+
     def export_schema(self) -> Dict[str, Any]:
         """Return JSON-serializable MCP tool schema metadata."""
 
@@ -170,6 +221,32 @@ class RenderdocTools:
                     "required": ["capture_path", "resource_id", "output_path"],
                 },
             },
+            "analyze_nan_inf": {
+                "description": "Analyze NaN/Inf anomalies for a single pixel via PixelHistory",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "capture_path": {"type": "string"},
+                        "texture_id": {"type": "integer"},
+                        "x": {"type": "integer"},
+                        "y": {"type": "integer"},
+                        "sample": {"type": "integer", "default": 0},
+                    },
+                    "required": ["capture_path", "texture_id", "x", "y"],
+                },
+            },
+            "geometry_anomalies": {
+                "description": "Detect basic geometric anomalies for a given drawcall",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "capture_path": {"type": "string"},
+                        "event_id": {"type": "integer"},
+                        "mesh_slot": {"type": "integer", "default": 0},
+                    },
+                    "required": ["capture_path", "event_id"],
+                },
+            },
         }
 
     def dispatch(self, tool_name: str, payload: Dict[str, Any]) -> Any:
@@ -183,6 +260,10 @@ class RenderdocTools:
             return self.enumerate_counters(**payload)
         if tool_name == "save_texture":
             return self.save_texture(**payload)
+        if tool_name == "analyze_nan_inf":
+            return self.analyze_nan_inf(**payload)
+        if tool_name == "geometry_anomalies":
+            return self.geometry_anomalies(**payload)
         raise KeyError(f"Unknown tool: {tool_name}")
 
 

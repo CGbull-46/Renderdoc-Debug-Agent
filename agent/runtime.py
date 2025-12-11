@@ -11,6 +11,7 @@ from .config import AgentConfig
 from .mcp_server import serve
 from .renderdoc_adapter import load_renderdoc
 from .tools.renderdoc_tools import RenderdocTools
+from .mcp_renderdoc import tool_descriptors
 
 
 @dataclass
@@ -28,9 +29,17 @@ class RenderdocDebugAgent:
         self.tools = RenderdocTools(self.rd)
 
     def list_mcp_tools(self) -> Dict[str, Any]:
-        """Return JSON schemas for wiring into the Model Context Protocol."""
+        """Return JSON schemas for wiring into the Model Context Protocol.
 
-        return self.tools.export_schema()
+        The result contains both the low-level schema exported by
+        RenderdocTools and the higher-level MCP tool descriptors (including
+        fully-qualified tool names) from agent.mcp_renderdoc.
+        """
+
+        return {
+            "schema": self.tools.export_schema(),
+            "descriptors": tool_descriptors(),
+        }
 
     def execute_chain(self, actions: List[ToolCall]) -> List[Dict[str, Any]]:
         """Execute a chain of tool calls produced by a planner model."""
