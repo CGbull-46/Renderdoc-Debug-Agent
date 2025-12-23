@@ -1,5 +1,5 @@
 {
   "apiKey": "sk-or-v1-REPLACE_ME",
-  "plannerModel": "gpt-4o-mini",
-  "explainerModel": "gpt-4o"
+  "plannerModel": "gpt-5.2",
+  "explainerModel": "gemini-3-flash-preview"
 }
