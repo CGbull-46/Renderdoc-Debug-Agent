@@ -24,8 +24,11 @@ class RenderdocCapture:
 
     def __enter__(self):
         self._file = self.rd.open_capture_file()
-        status = self._file.OpenFile(str(self.capture_path), "")
-        if status != 0:
+        try:
+            status = self._file.OpenFile(str(self.capture_path), "", None)
+        except TypeError:
+            status = self._file.OpenFile(str(self.capture_path), "")
+        if not _status_ok(self.rd, status):
             raise CaptureError(f"Failed to open capture: {self.capture_path} (status={status})")
 
         if not self.rd.local_replay_supported():
@@ -34,9 +37,16 @@ class RenderdocCapture:
         if not self._file.LocalReplaySupport():
             raise CaptureError("Capture file not suitable for local replay.")
 
-        self._controller = self._file.OpenCapture(allowExecution=True)
-        if self._controller is None:
-            raise CaptureError("Failed to acquire replay controller.")
+        try:
+            result, controller = self._file.OpenCapture(self.rd.module.ReplayOptions(), None)
+            if not _status_ok(self.rd, result) or controller is None:
+                raise CaptureError(f"Failed to acquire replay controller (status={result}).")
+            self._controller = controller
+        except TypeError:
+            controller = self._file.OpenCapture(allowExecution=True)
+            if controller is None:
+                raise CaptureError("Failed to acquire replay controller.")
+            self._controller = controller
         return self
 
     def __exit__(self, exc_type, exc, tb):
@@ -64,29 +74,32 @@ class RenderdocTools:
         """Return the flattened action tree for a capture."""
 
         with RenderdocCapture(self.rd, Path(capture_path)) as cap:
+            structured = None
+            if hasattr(cap.controller, "GetStructuredFile"):
+                structured = cap.controller.GetStructuredFile()
             actions = []
             for action in cap.controller.GetRootActions():
-                actions.extend(self._flatten_action(action))
+                actions.extend(self._flatten_action(action, structured))
             return actions
 
-    def _flatten_action(self, action) -> Iterable[Dict[str, Any]]:
+    def _flatten_action(self, action, structured) -> Iterable[Dict[str, Any]]:
         yield {
             "eventId": action.eventId,
             "drawcallId": action.drawcallId,
             "flags": str(action.flags),
-            "name": action.GetName(),
+            "name": _action_name(action, structured),
         }
         for child in action.children:
-            yield from self._flatten_action(child)
+            yield from self._flatten_action(child, structured)
 
     def pixel_history(self, capture_path: str, texture_id: int, x: int, y: int, sample: int = 0) -> List[Dict[str, Any]]:
         """Return sanitized pixel history for a location."""
 
         with RenderdocCapture(self.rd, Path(capture_path)) as cap:
-            history = cap.controller.PixelHistory(self.rd.module.ResourceId(texture_id), x, y, sample)
+            history = cap.controller.PixelHistory(_resource_id(self.rd, texture_id), x, y, sample)
             cleaned = [
                 {
-                    "eventId": mod.eventId,
+                    "eventId": _event_id(mod),
                     "preColour": list(mod.preMod.colour),
                     "postColour": list(mod.postMod.colour),
                 }
@@ -114,7 +127,7 @@ class RenderdocTools:
 
         with RenderdocCapture(self.rd, Path(capture_path)) as cap:
             save_data = self.rd.module.TextureSave()
-            save_data.resourceId = self.rd.module.ResourceId(resource_id)
+            save_data.resourceId = _resource_id(self.rd, resource_id)
             save_data.destType = self.rd.module.FileType.PNG
             save_data.mip = mip
             save_data.slice.sliceIndex = slice
@@ -125,14 +138,14 @@ class RenderdocTools:
         """Analyze NaN/Inf anomalies in pixel history for a given location."""
 
         with RenderdocCapture(self.rd, Path(capture_path)) as cap:
-            history = cap.controller.PixelHistory(self.rd.module.ResourceId(texture_id), x, y, sample)
+            history = cap.controller.PixelHistory(_resource_id(self.rd, texture_id), x, y, sample)
             anomalies: List[Dict[str, Any]] = []
             for mod in history:
                 colour = mod.postMod.colour
                 if any(math.isnan(c) or math.isinf(c) for c in colour):
                     anomalies.append(
                         {
-                            "eventId": mod.eventId,
+                            "eventId": _event_id(mod),
                             "color": [float(v) for v in colour],
                         }
                     )
@@ -271,3 +284,36 @@ def serialize_result(result: Any) -> str:
     """Serialize tool output into a compact JSON string for MCP responses."""
 
     return json.dumps(result, ensure_ascii=False, indent=2)
+
+
+def _status_ok(rd: RenderdocModule, status: Any) -> bool:
+    if hasattr(rd.module, "ResultCode"):
+        return status == rd.module.ResultCode.Succeeded
+    return status == 0
+
+
+def _resource_id(rd: RenderdocModule, resource_id: Any):
+    resource_type = getattr(rd.module, "ResourceId", None)
+    if resource_type is None:
+        return resource_id
+    if isinstance(resource_id, resource_type):
+        return resource_id
+    return resource_type(resource_id)
+
+
+def _event_id(mod: Any) -> int:
+    if hasattr(mod, "eventId"):
+        return int(mod.eventId)
+    return int(getattr(mod, "eventID"))
+
+
+def _action_name(action: Any, structured: Any) -> str:
+    if structured is not None:
+        try:
+            return action.GetName(structured)
+        except TypeError:
+            pass
+    try:
+        return action.GetName()
+    except Exception:
+        return getattr(action, "name", "<unknown>")

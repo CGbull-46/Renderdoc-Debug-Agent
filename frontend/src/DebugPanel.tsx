@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import PixelHistoryTable, { PixelMod } from './PixelHistoryTable';
 import ThoughtChain from './ThoughtChain';
 
@@ -17,19 +17,12 @@ const DebugPanel = () => {
   const [history, setHistory] = useState<PixelMod[]>([]);
   const [thoughts, setThoughts] = useState<string[]>([]);
   const [explanation, setExplanation] = useState<string>('');
-  const [openrouterKey, setOpenrouterKey] = useState<string | null>(null);
+  const [openrouterKey, setOpenrouterKey] = useState<string>('');
 
   React.useEffect(() => {
     const saved = window.localStorage.getItem('openrouter_api_key');
     if (saved) {
       setOpenrouterKey(saved);
-    } else {
-      const entered = window.prompt('请输入 OpenRouter API Key（只需输入一次，将保存在本机浏览器）：') || '';
-      const trimmed = entered.trim();
-      if (trimmed) {
-        window.localStorage.setItem('openrouter_api_key', trimmed);
-        setOpenrouterKey(trimmed);
-      }
     }
   }, []);
 
@@ -53,14 +46,18 @@ const DebugPanel = () => {
   };
 
   const runAnalysis = async () => {
-    if (!file || !capturePath || !openrouterKey) {
+    if (!file || !capturePath) {
       return;
     }
-    const body = {
-      question: '请帮我基于这个capture做一次初步诊断，优先列出可疑的 drawcall 或 NaN/几何异常。',
-      capturePath,
-      openrouterKey
+    const trimmedKey = openrouterKey.trim();
+    const body: Record<string, unknown> = {
+      question: '请帮我基于这个 capture 做一次初步诊断，优先列出可疑的 drawcall、NaN 或几何异常。',
+      capturePath
     };
+    if (trimmedKey) {
+      body.openrouterKey = trimmedKey;
+    }
+
     const res = await fetch('http://localhost:8080/nl-debug', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -71,16 +68,21 @@ const DebugPanel = () => {
     const mcp = data.mcp as any;
     if (mcp && mcp.ok && Array.isArray(mcp.result)) {
       const maybeHistory = mcp.result as any[];
-      if (maybeHistory.length && typeof maybeHistory[0].eventId === 'number' && Array.isArray(maybeHistory[0].postColour)) {
-        const mapped: PixelMod[] = maybeHistory.map(h => ({
-          eventId: h.eventId,
-          color: h.postColour,
-          shader: undefined
-        }));
-        setHistory(mapped);
-      } else {
-        setHistory([]);
-      }
+      const mapped: PixelMod[] = maybeHistory
+        .map(entry => {
+          const eventId = entry.eventId ?? entry.eventID;
+          const color = entry.postColour ?? entry.color;
+          if (typeof eventId !== 'number' || !Array.isArray(color)) {
+            return null;
+          }
+          return {
+            eventId,
+            color,
+            shader: entry.shaderName ?? entry.shader
+          } as PixelMod;
+        })
+        .filter(Boolean) as PixelMod[];
+      setHistory(mapped);
     } else {
       setHistory([]);
     }
@@ -90,8 +92,28 @@ const DebugPanel = () => {
   return (
     <div style={{ padding: 16, fontFamily: 'sans-serif' }}>
       <h2>RenderDoc Debug Agent</h2>
+      <div style={{ marginBottom: 12 }}>
+        <label style={{ display: 'block', marginBottom: 6 }}>
+          OpenRouter API Key（可选，仅保存在本机浏览器）
+        </label>
+        <input
+          type="password"
+          value={openrouterKey}
+          placeholder="sk-..."
+          onChange={e => {
+            const value = e.target.value;
+            setOpenrouterKey(value);
+            if (value.trim()) {
+              window.localStorage.setItem('openrouter_api_key', value.trim());
+            } else {
+              window.localStorage.removeItem('openrouter_api_key');
+            }
+          }}
+          style={{ width: '100%', maxWidth: 420 }}
+        />
+      </div>
       <input type="file" accept=".rdc" onChange={handleUpload} />
-      <button onClick={runAnalysis} disabled={!file} style={{ marginLeft: 8 }}>
+      <button onClick={runAnalysis} disabled={!file || !capturePath} style={{ marginLeft: 8 }}>
         运行智能诊断
       </button>
       <div style={{ marginTop: 16 }}>
