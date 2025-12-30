@@ -184,6 +184,50 @@ class RenderdocTools:
                         )
             return issues
 
+    def get_pipeline_state(self, capture_path: str, event_id: int) -> Dict[str, Any]:
+        """Summarize pipeline framebuffer attachments for a given drawcall."""
+
+        with RenderdocCapture(self.rd, Path(capture_path)) as cap:
+            cap.controller.SetFrameEvent(event_id, True)
+
+            color_targets: List[Dict[str, Any]] = []
+            depth_target: Optional[Dict[str, Any]] = None
+            try:
+                pipe = cap.controller.GetPipelineState()
+                framebuffer = getattr(pipe, "GetFramebuffer", None)
+                if callable(framebuffer):
+                    fb = framebuffer()
+                    if hasattr(fb, "colorAttachments"):
+                        for idx, att in enumerate(fb.colorAttachments):
+                            res_id = getattr(att, "resourceId", None)
+                            if res_id:
+                                color_targets.append(
+                                    {
+                                        "index": idx,
+                                        "resourceId": _resource_id_to_str(res_id),
+                                        "name": getattr(att, "name", f"RT{idx}"),
+                                    }
+                                )
+                    depth_att = getattr(fb, "depthAttachment", None)
+                    if depth_att and getattr(depth_att, "resourceId", None):
+                        depth_target = {
+                            "resourceId": _resource_id_to_str(depth_att.resourceId),
+                            "name": getattr(depth_att, "name", "Depth"),
+                        }
+            except Exception:
+                pass
+
+            highlight = None
+            if depth_target is None:
+                highlight = "RS"
+
+            return {
+                "highlightStage": highlight,
+                "warningMessage": None if highlight is None else "Depth attachment missing; RS highlighted",
+                "colorTargets": color_targets,
+                "depthTarget": depth_target,
+            }
+
     def export_schema(self) -> Dict[str, Any]:
         """Return JSON-serializable MCP tool schema metadata."""
 
@@ -260,6 +304,17 @@ class RenderdocTools:
                     "required": ["capture_path", "event_id"],
                 },
             },
+            "get_pipeline_state": {
+                "description": "Summarize framebuffer attachments for a specific drawcall",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "capture_path": {"type": "string"},
+                        "event_id": {"type": "integer"},
+                    },
+                    "required": ["capture_path", "event_id"],
+                },
+            },
         }
 
     def dispatch(self, tool_name: str, payload: Dict[str, Any]) -> Any:
@@ -277,6 +332,8 @@ class RenderdocTools:
             return self.analyze_nan_inf(**payload)
         if tool_name == "geometry_anomalies":
             return self.geometry_anomalies(**payload)
+        if tool_name == "get_pipeline_state":
+            return self.get_pipeline_state(**payload)
         raise KeyError(f"Unknown tool: {tool_name}")
 
 
@@ -298,7 +355,20 @@ def _resource_id(rd: RenderdocModule, resource_id: Any):
         return resource_id
     if isinstance(resource_id, resource_type):
         return resource_id
-    return resource_type(resource_id)
+    try:
+        return resource_type(resource_id)
+    except Exception:
+        return resource_id
+
+
+def _resource_id_to_str(resource_id: Any) -> str:
+    value = getattr(resource_id, "value", None)
+    if value is not None:
+        try:
+            return str(int(value))
+        except Exception:
+            return str(value)
+    return str(resource_id)
 
 
 def _event_id(mod: Any) -> int:

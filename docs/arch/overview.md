@@ -23,4 +23,4 @@
 
 - 在部署前确保安装 RenderDoc 并生成 Python 绑定；Windows 和 macOS 都有官方安装包，Linux 可参考官网编译说明。
 - 运行 `RenderdocDebugAgent.run_mcp_server_sync()` 可开启本地 MCP WebSocket 服务，供 Orchestrator/LLM 调用。
-- 推荐的模型上下文注入顺序：`docs/api_spec.md` → `docs/sop.md` → `docs/workflows.md` → `docs/prompts/*`。
+- 推荐的模型上下文注入顺序：[docs/api/spec.md](../api/spec.md) → [docs/guides/debug_sop.md](../guides/debug_sop.md) → [docs/guides/workflows.md](../guides/workflows.md) → `docs/agent/prompts/*`。

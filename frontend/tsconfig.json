@@ -4,6 +4,7 @@
     "module": "ESNext",
     "jsx": "react-jsx",
     "lib": ["DOM", "ESNext"],
+    "types": ["vite/client"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,

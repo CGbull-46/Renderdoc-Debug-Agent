@@ -12,10 +12,10 @@
 2. 确保 RenderDoc Python 绑定可用：
    - 将 RenderDoc 的 `python/` 目录加入 `PYTHONPATH`，或
    - 设置环境变量 `RENDERDOC_PYTHON_PATH`。
-3. 复制配置文件：
-   - `config/openrouter.example.json` → `config/openrouter.json`，填入自己的 `apiKey`。
-4. 双击运行：`scripts/start_debug_agent.bat`。
-5. 打开浏览器：`http://localhost:3000`，上传 `.rdc` 后点击“运行智能诊断”。
+3. **快速预览**：双击运行 `start_debug_agent.bat`，自动打开前端 UI（http://localhost:3000）。
+4. **完整配置**（可选，用于后端调试功能）：
+   - 复制 `config/openrouter.example.json` → `config/openrouter.json`，填入自己的 `apiKey`。
+   - 手动启动后端组件（见下方"手动启动"章节）。
 
 ## 手动启动
 ### 1) MCP Agent
@@ -75,6 +75,12 @@ python -m agent.smoke_test
 - `docs/`：架构、SOP、Prompt 与 API 文档。
 - `captures/`：上传的 `.rdc`（运行时生成）。
 - `rdc/`：上游 RenderDoc 源码（只读，不在本项目中修改）。
+
+## 规划（Plan）
+- Sidebar/Projects 与 Settings/Models 的下一步迭代计划：`docs/agent/plans/sidebar_projects_and_settings_models_plan.md`
+
+## 变更日志（Memory）
+- 统一的增量 changelog：`docs/agent/changelog.md`
 
 ## 注意事项
 - 不要提交真实 API Key；`config/openrouter.json` 已被 `.gitignore` 忽略。

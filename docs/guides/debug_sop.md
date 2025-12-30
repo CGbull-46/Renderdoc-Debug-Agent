@@ -11,7 +11,7 @@
 5. **验证回路**：如果结论不稳固，Planner 追加新工具调用（如不同 mip/slice 的纹理导出）。
 
 ## Prompt 注入建议
-- **Planner**：强调“先证据后结论”，引用 `docs/api_spec.md` 中的 schema；要求输出 `{name, arguments}` 的数组。
+- **Planner**：强调“先证据后结论”，引用 [docs/api/spec.md](../api/spec.md) 中的 schema；要求输出 `{name, arguments}` 的数组。
 - **Explainer**：提供工具调用结果和导出图片路径，要求输出可读报告与下一步行动建议。
 
 ## 多模态指引
