@@ -14,27 +14,108 @@ const MCP_PORT = Number(process.env.MCP_PORT || 8765);
 const ORCH_PORT = Number(process.env.ORCH_PORT || 8080);
 const VERSION = '0.2.0';
 const REPO_ROOT = path.join(__dirname, '..', '..');
+const CONFIG_ROOT = path.join(REPO_ROOT, 'runtime', 'config');
+const LEGACY_CONFIG_ROOT = path.join(REPO_ROOT, 'config');
+const CONFIG_ENV_PATH = path.join(CONFIG_ROOT, '.env');
+const MODELS_CONFIG_PATH = path.join(CONFIG_ROOT, 'models.json');
+const LEGACY_MODELS_CONFIG_PATH = path.join(LEGACY_CONFIG_ROOT, 'models.json');
+const LEGACY_OPENROUTER_PATH = path.join(LEGACY_CONFIG_ROOT, 'openrouter.json');
 const PROJECTS_ROOT = path.join(REPO_ROOT, 'projects');
 
-function loadConfig() {
-  const configPath = path.join(REPO_ROOT, 'config', 'openrouter.json');
-  if (fs.existsSync(configPath)) {
-    const raw = fs.readFileSync(configPath, 'utf-8');
+function parseEnvFile(content) {
+  const parsed = {};
+  content.split(/\r?\n/).forEach(line => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) return;
+    const index = trimmed.indexOf('=');
+    if (index === -1) return;
+    const key = trimmed.slice(0, index).trim();
+    let value = trimmed.slice(index + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    parsed[key] = value;
+  });
+  return parsed;
+}
+
+function loadEnvFile(filePath) {
+  if (!fs.existsSync(filePath)) return {};
+  try {
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    return parseEnvFile(raw);
+  } catch (e) {
+    return {};
+  }
+}
+
+function serializeEnvValue(value) {
+  if (value === undefined || value === null) return '';
+  const text = String(value);
+  if (!text) return '';
+  if (/[\s"'=]/.test(text)) {
+    const escaped = text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    return `"${escaped}"`;
+  }
+  return text;
+}
+
+function writeEnvFile(filePath, envMap) {
+  ensureDir(path.dirname(filePath));
+  const entries = Object.entries(envMap)
+    .filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== '')
+    .map(([key, value]) => `${key}=${serializeEnvValue(value)}`);
+  fs.writeFileSync(filePath, `${entries.join('\n')}${entries.length ? '\n' : ''}`, 'utf-8');
+}
+
+function loadLegacyOpenRouter() {
+  if (!fs.existsSync(LEGACY_OPENROUTER_PATH)) return {};
+  try {
+    const raw = fs.readFileSync(LEGACY_OPENROUTER_PATH, 'utf-8');
     const cfg = JSON.parse(raw);
     return {
-      apiKey: cfg.apiKey || '',
-      plannerModel: cfg.plannerModel || 'gpt-4o-mini',
-      explainerModel: cfg.explainerModel || 'gpt-4o',
+      apiKey: typeof cfg.apiKey === 'string' ? cfg.apiKey : '',
+      plannerModel: typeof cfg.plannerModel === 'string' ? cfg.plannerModel : '',
+      explainerModel: typeof cfg.explainerModel === 'string' ? cfg.explainerModel : '',
     };
+  } catch (e) {
+    return {};
   }
+}
+
+function pickValue(...candidates) {
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  return '';
+}
+
+function loadConfig() {
+  const envFile = loadEnvFile(CONFIG_ENV_PATH);
+  const legacy = loadLegacyOpenRouter();
   return {
-    apiKey: process.env.OPENROUTER_API_KEY || '',
-    plannerModel: process.env.PLANNER_MODEL || 'gpt-4o-mini',
-    explainerModel: process.env.EXPLAINER_MODEL || 'gpt-4o',
+    apiKey: pickValue(envFile.OPENROUTER_API_KEY, process.env.OPENROUTER_API_KEY, legacy.apiKey, ''),
+    plannerModel: pickValue(
+      envFile.PLANNER_MODEL,
+      process.env.PLANNER_MODEL,
+      legacy.plannerModel,
+      'gpt-4o-mini'
+    ),
+    explainerModel: pickValue(
+      envFile.EXPLAINER_MODEL,
+      process.env.EXPLAINER_MODEL,
+      legacy.explainerModel,
+      'gpt-4o'
+    ),
   };
 }
 
-const CONFIG = loadConfig();
+let CONFIG = loadConfig();
 
 function ensureDir(dirPath) {
   if (!fs.existsSync(dirPath)) {
@@ -207,7 +288,7 @@ function listResources(projectDir) {
 }
 
 function loadModelsConfig() {
-  const configPath = path.join(REPO_ROOT, 'config', 'models.json');
+  const configPath = fs.existsSync(MODELS_CONFIG_PATH) ? MODELS_CONFIG_PATH : LEGACY_MODELS_CONFIG_PATH;
   const fallback = {
     models: [
       { id: CONFIG.plannerModel, label: CONFIG.plannerModel, role: 'planner' },
@@ -257,7 +338,9 @@ function readJsonBody(req) {
 async function callOpenRouter(model, systemPrompt, userContent, asJson = false, overrideKey) {
   const apiKey = overrideKey || CONFIG.apiKey;
   if (!apiKey) {
-    throw new Error('OpenRouter API key missing; please provide one in request or configure orchestrator/config/openrouter.json');
+    throw new Error(
+      'OpenRouter API key missing; please provide one in request or configure runtime/config/.env (OPENROUTER_API_KEY)'
+    );
   }
   const headers = {
     Authorization: `Bearer ${apiKey}`,
@@ -675,6 +758,59 @@ function handleModels(res) {
   });
 }
 
+function buildSettingsPayload(config) {
+  return {
+    hasApiKey: Boolean(config.apiKey),
+    plannerModel: config.plannerModel,
+    actionModel: config.explainerModel,
+  };
+}
+
+function handleSettingsGet(res) {
+  CONFIG = loadConfig();
+  return json(res, 200, buildSettingsPayload(CONFIG));
+}
+
+async function handleSettingsPut(req, res) {
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch (e) {
+    return json(res, 400, { error: 'invalid_json', detail: String(e) });
+  }
+
+  const envData = loadEnvFile(CONFIG_ENV_PATH);
+  const hasApiKey = Object.prototype.hasOwnProperty.call(body, 'apiKey');
+  if (hasApiKey) {
+    const apiKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : '';
+    if (apiKey) {
+      envData.OPENROUTER_API_KEY = apiKey;
+    } else {
+      delete envData.OPENROUTER_API_KEY;
+    }
+  }
+
+  const hasPlanner = Object.prototype.hasOwnProperty.call(body, 'plannerModel');
+  if (hasPlanner) {
+    const plannerModel = typeof body.plannerModel === 'string' ? body.plannerModel.trim() : '';
+    if (plannerModel) {
+      envData.PLANNER_MODEL = plannerModel;
+    }
+  }
+
+  const hasAction = Object.prototype.hasOwnProperty.call(body, 'actionModel');
+  if (hasAction) {
+    const actionModel = typeof body.actionModel === 'string' ? body.actionModel.trim() : '';
+    if (actionModel) {
+      envData.EXPLAINER_MODEL = actionModel;
+    }
+  }
+
+  writeEnvFile(CONFIG_ENV_PATH, envData);
+  CONFIG = loadConfig();
+  return json(res, 200, { ok: true, ...buildSettingsPayload(CONFIG) });
+}
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://localhost:${ORCH_PORT}`);
 
@@ -683,6 +819,13 @@ const server = http.createServer((req, res) => {
   }
   if (req.method === 'GET' && url.pathname === '/models') {
     return handleModels(res);
+  }
+  if (req.method === 'GET' && url.pathname === '/settings') {
+    return handleSettingsGet(res);
+  }
+  if (req.method === 'PUT' && url.pathname === '/settings') {
+    handleSettingsPut(req, res);
+    return;
   }
 
   if (req.method === 'GET' && url.pathname === '/projects') {

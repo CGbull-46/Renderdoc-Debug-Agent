@@ -14,7 +14,8 @@
    - 设置环境变量 `RENDERDOC_PYTHON_PATH`。
 3. **快速预览**：双击运行 `start_debug_agent.bat`，自动打开前端 UI（http://localhost:3000）。
 4. **完整配置**（可选，用于后端调试功能）：
-   - 复制 `config/openrouter.example.json` → `config/openrouter.json`，填入自己的 `apiKey`。
+   - 前端 Settings 填入 OpenRouter API Key 并 Apply（会写入 `runtime/config/.env`），或
+   - 手动创建 `runtime/config/.env`，设置 `OPENROUTER_API_KEY` 等。
    - 手动启动后端组件（见下方"手动启动"章节）。
 
 ## 手动启动
@@ -43,16 +44,16 @@ python -m runtime.agent.smoke_test
 ```
 
 ## 配置说明
-- `config/openrouter.json`
-  - `apiKey`: OpenRouter API Key
-  - `plannerModel`: 规划模型（默认 `gpt-4o-mini`）
-  - `explainerModel`: 解释模型（默认 `gpt-4o`）
-- `config/models.json`
+- `runtime/config/.env`
+  - `OPENROUTER_API_KEY`: OpenRouter API Key
+  - `PLANNER_MODEL`: 规划模型（默认 `gpt-4o-mini`）
+  - `EXPLAINER_MODEL`: 解释模型（默认 `gpt-4o`）
+- `runtime/config/models.json`
   - `models`: 可选模型枚举（含 `id`/`label`/`role`）
   - `defaultPlanner`: 默认 Planner 模型
   - `defaultAction`: 默认 Action 模型
 
-- 环境变量（可替代或补充配置文件）：
+- 环境变量（作为 `.env` 兜底）：
   - `OPENROUTER_API_KEY`, `PLANNER_MODEL`, `EXPLAINER_MODEL`
   - `RENDERDOC_PYTHON_PATH`, `RENDERDOC_CAPTURE`
   - `MCP_HOST`, `MCP_PORT`, `ORCH_PORT`
@@ -89,7 +90,7 @@ python -m runtime.agent.smoke_test
 - 详细记录：`agent-workbench/memory/entries/`
 
 ## 注意事项
-- 不要提交真实 API Key；`config/openrouter.json` 已被 `.gitignore` 忽略。
+- 不要提交真实 API Key；`runtime/config/.env` 已被 `.gitignore` 忽略。
 - RenderDoc capture 必须支持 Local Replay，否则 MCP 工具会返回错误。
 
 本项目采用 MIT License。

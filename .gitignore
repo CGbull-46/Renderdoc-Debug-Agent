@@ -45,5 +45,5 @@ pnpm-debug.log*
 # Project runtime data & secrets
 /projects/
 /runtime/agent/temp/
-/config/openrouter.json
+/runtime/config/.env
 *.log

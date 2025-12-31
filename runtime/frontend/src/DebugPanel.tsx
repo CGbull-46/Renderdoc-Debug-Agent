@@ -33,6 +33,15 @@ import {
 } from './types';
 
 type CanvasMode = 'aggregated' | 'single';
+type SettingsPayload = { apiKey?: string; plannerModel?: string; actionModel?: string };
+type SettingsResponse = {
+  ok?: boolean;
+  hasApiKey?: boolean;
+  plannerModel?: string;
+  actionModel?: string;
+  error?: string;
+  detail?: string;
+};
 
 const SIDEBAR_MIN = 10;
 const SIDEBAR_MAX = 15;
@@ -43,9 +52,6 @@ const DEFAULT_FEED = 20;
 const BASE_URL = 'http://127.0.0.1:8080';
 
 const STORAGE_KEYS = {
-  openrouterApiKey: 'openrouter_api_key',
-  plannerModel: 'planner_model',
-  actionModel: 'action_model',
   activeProjectId: 'active_project_id',
 };
 
@@ -595,6 +601,7 @@ function Sidebar({
 function SettingsModal({
   open,
   apiKey,
+  hasSavedKey,
   plannerModel,
   actionModel,
   models,
@@ -604,6 +611,7 @@ function SettingsModal({
 }: {
   open: boolean;
   apiKey: string;
+  hasSavedKey: boolean;
   plannerModel: string;
   actionModel: string;
   models: ModelOption[];
@@ -648,11 +656,17 @@ function SettingsModal({
 
         <div className="space-y-4">
           <label className="block space-y-2 text-sm text-obsidian-primaryText">
-            <span>OpenRouter API Key (local only)</span>
+            <div className="flex items-center justify-between">
+              <span>OpenRouter API Key</span>
+              <span className="text-xs text-obsidian-secondaryText">
+                {hasSavedKey ? '已在后端保存' : '未保存'}
+              </span>
+            </div>
             <input
               className="w-full rounded-lg border border-obsidian-border bg-obsidian-bg px-3 py-2 text-sm text-obsidian-primaryText"
               type="password"
               value={form.apiKey}
+              placeholder={hasSavedKey ? '留空表示不修改' : '未保存'}
               onChange={e => setForm(prev => ({ ...prev, apiKey: e.target.value }))}
             />
           </label>
@@ -732,6 +746,7 @@ const DebugPanel = () => {
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [apiKey, setApiKey] = useState('');
+  const [hasSavedKey, setHasSavedKey] = useState(false);
   const [plannerModel, setPlannerModel] = useState('');
   const [actionModel, setActionModel] = useState('');
   const [models, setModels] = useState<ModelOption[]>([]);
@@ -817,13 +832,7 @@ const DebugPanel = () => {
   useEffect(() => () => stopDrag(), [stopDrag]);
 
   useEffect(() => {
-    const savedKey = window.localStorage.getItem(STORAGE_KEYS.openrouterApiKey);
-    const savedPlanner = window.localStorage.getItem(STORAGE_KEYS.plannerModel);
-    const savedAction = window.localStorage.getItem(STORAGE_KEYS.actionModel);
     const savedProjectId = window.localStorage.getItem(STORAGE_KEYS.activeProjectId);
-    if (savedKey) setApiKey(savedKey);
-    if (savedPlanner) setPlannerModel(savedPlanner);
-    if (savedAction) setActionModel(savedAction);
     if (savedProjectId) setActiveProjectId(savedProjectId);
   }, []);
 
@@ -903,6 +912,29 @@ const DebugPanel = () => {
     loadProject(activeProjectId);
   }, [activeProjectId, loadProject]);
 
+  const loadSettings = useCallback(async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/settings`);
+      const data = (await res.json()) as SettingsResponse;
+      if (!res.ok) {
+        throw new Error(data?.error || 'Settings request failed');
+      }
+      setHasSavedKey(Boolean(data.hasApiKey));
+      if (data.plannerModel) {
+        setPlannerModel(prev => prev || data.plannerModel || '');
+      }
+      if (data.actionModel) {
+        setActionModel(prev => prev || data.actionModel || '');
+      }
+    } catch (e) {
+      setConnection({ state: 'disconnected', message: String(e) });
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
   const loadModels = useCallback(async () => {
     try {
       const res = await fetch(`${BASE_URL}/models`);
@@ -919,8 +951,9 @@ const DebugPanel = () => {
   useEffect(() => {
     if (settingsOpen) {
       loadModels();
+      loadSettings();
     }
-  }, [loadModels, settingsOpen]);
+  }, [loadModels, loadSettings, settingsOpen]);
 
   const handleInspect = (submissionId?: string) => {
     if (!submissionId) return;
@@ -929,23 +962,36 @@ const DebugPanel = () => {
   };
 
   const applySettings = async (next: { apiKey: string; plannerModel: string; actionModel: string }) => {
-    setTestStatus({ state: 'loading', message: 'Testing connectivity...' });
+    setTestStatus({ state: 'loading', message: 'Saving settings...' });
     setApiKey(next.apiKey);
     setPlannerModel(next.plannerModel);
     setActionModel(next.actionModel);
-    if (next.apiKey.trim()) {
-      window.localStorage.setItem(STORAGE_KEYS.openrouterApiKey, next.apiKey.trim());
-    } else {
-      window.localStorage.removeItem(STORAGE_KEYS.openrouterApiKey);
-    }
-    if (next.plannerModel.trim()) {
-      window.localStorage.setItem(STORAGE_KEYS.plannerModel, next.plannerModel.trim());
-    }
-    if (next.actionModel.trim()) {
-      window.localStorage.setItem(STORAGE_KEYS.actionModel, next.actionModel.trim());
-    }
 
     try {
+      const payload: SettingsPayload = {
+        plannerModel: next.plannerModel.trim(),
+        actionModel: next.actionModel.trim(),
+      };
+      if (next.apiKey.trim()) {
+        payload.apiKey = next.apiKey.trim();
+      }
+
+      const saveRes = await fetch(`${BASE_URL}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const saveData = (await saveRes.json()) as SettingsResponse;
+      if (!saveRes.ok) {
+        throw new Error(saveData?.error || 'Settings update failed');
+      }
+
+      setHasSavedKey(Boolean(saveData.hasApiKey));
+      if (saveData.plannerModel) setPlannerModel(saveData.plannerModel);
+      if (saveData.actionModel) setActionModel(saveData.actionModel);
+      setApiKey('');
+
+      setTestStatus({ state: 'loading', message: 'Testing connectivity...' });
       const res = await fetch(`${BASE_URL}/health`);
       const data = await res.json();
       if (data && data.status === 'ok') {
@@ -1136,17 +1182,28 @@ const DebugPanel = () => {
     setSending(true);
 
     try {
+      const payload: {
+        question: string;
+        capturePath: string;
+        plannerModel: string;
+        actionModel: string;
+        projectId: string | null;
+        openrouterKey?: string;
+      } = {
+        question,
+        capturePath,
+        plannerModel,
+        actionModel,
+        projectId: activeProjectId,
+      };
+      if (apiKey.trim()) {
+        payload.openrouterKey = apiKey.trim();
+      }
+
       const res = await fetch(`${BASE_URL}/nl-debug`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question,
-          capturePath,
-          openrouterKey: apiKey,
-          plannerModel,
-          actionModel,
-          projectId: activeProjectId,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       const agentMessage: Message = data.message || pending;
@@ -1280,6 +1337,7 @@ const DebugPanel = () => {
       <SettingsModal
         open={settingsOpen}
         apiKey={apiKey}
+        hasSavedKey={hasSavedKey}
         plannerModel={plannerModel}
         actionModel={actionModel}
         models={models}

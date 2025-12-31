@@ -55,6 +55,7 @@
 
 ### POST /nl-debug
 - **入参**：`{ question: string, capturePath: string, openrouterKey?: string, plannerModel?: string, actionModel?: string, projectId?: string }`
+- **说明**：未提供 `openrouterKey` 时使用后端配置（`runtime/config/.env` 或环境变量）。
 - **返回**：
   ```json
   {
@@ -118,3 +119,12 @@
 ### GET /models
 - **描述**：返回可用的 Planner/Action 模型列表。
 - **返回**：`{ models: [{ id, label, role }], defaultPlanner: string, defaultAction: string }`
+
+### GET /settings
+- **描述**：获取后端已保存的模型与 Key 状态（不返回明文 Key）。
+- **返回**：`{ hasApiKey: boolean, plannerModel: string, actionModel: string }`
+
+### PUT /settings
+- **描述**：保存模型与 API Key 到 `runtime/config/.env`。
+- **入参**：`{ apiKey?: string, plannerModel?: string, actionModel?: string }`
+- **返回**：`{ ok: true, hasApiKey: boolean, plannerModel: string, actionModel: string }`
