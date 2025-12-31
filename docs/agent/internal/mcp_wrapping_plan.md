@@ -106,7 +106,7 @@ agent/
 
 #### 4.1 MCP 工具声明（JSON/YAML 或 Python schema）
 
-Codex 后续可以在 `agent/mcp_renderdoc/__init__.py` 中导出一份工具列表，例如（伪代码）：
+Codex 后续可以在 `runtime/agent/mcp_renderdoc/__init__.py` 中导出一份工具列表，例如（伪代码）：
 
 ```python
 TOOLS = [
@@ -166,11 +166,11 @@ TOOLS = [
 为了让下一步的 Codex 运行时能 “机械执行” MCP 封装，建议按以下顺序下发任务：
 
 1. **Task A：创建 `mcp_renderdoc` 包骨架**
-   - 在 `agent/mcp_renderdoc/` 下创建：`__init__.py`, `session.py`, `tools_capture.py`, `tools_analysis.py`, `tools_pipeline.py`。  
+   - 在 `runtime/agent/mcp_renderdoc/` 下创建：`__init__.py`, `session.py`, `tools_capture.py`, `tools_analysis.py`, `tools_pipeline.py`。  
    - 在 `session.py` 中定义 `RenderDocSessionManager`，实现最小的 `open_capture` / `close_capture` / `get_controller`。  
 2. **Task B：对接现有 `renderdoc_adapter.py`**
    - 梳理 `renderdoc_adapter.py` 中已有的功能，统一改为通过 `RenderDocSessionManager` 获取 `ReplayController`。  
-   - 确保 `agent/tools/renderdoc_tools.py` 只依赖 adapter，不直接依赖 `renderdoc` 模块。  
+   - 确保 `runtime/agent/tools/renderdoc_tools.py` 只依赖 adapter，不直接依赖 `renderdoc` 模块。  
 3. **Task C：定义 MCP 工具清单**
    - 在 `mcp_renderdoc/__init__.py` 中定义 `TOOLS` 列表，覆盖：  
      - `open_capture`, `close_capture`, `list_actions`, `get_pixel_history`, `analyze_nan_inf`, `get_postvs_vertices`, `detect_geometry_anomalies`, `list_gpu_counters`, `fetch_gpu_counters` 等。  

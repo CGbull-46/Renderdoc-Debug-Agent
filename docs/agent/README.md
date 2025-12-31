@@ -1,13 +1,9 @@
-# Agent 文档入口
+# Agent（项目功能）文档入口
 
-本目录用于存放 **coding agent 专用** 的材料（人类不需要日常阅读）。目标是把“给人看的 docs”与“给 agent 用的说明/约束/记忆/计划”明确分离，降低仓库认知负担。
+本目录属于**项目本身的 Agent 功能上下文工程**（例如：产品内置 Prompt、功能说明等），用于帮助理解与实现项目功能。
 
-## 目录约定
-- `changelog.md`：增量变更记忆（append-only），后续每次迭代只追加条目。
-- `plans/`：迭代计划（先出 Plan 再实现），可以按主题逐个文件累积。
-- `prompts/`：Planner/Explainer 的 Prompt 模板（如需要注入上下文或对齐输出格式）。
-- `internal/`：研究/草案/任务清单等（不保证对最终产品用户友好，但对 agent 排查/实现有帮助）。
+## coding agent 开发治理放哪里？
+coding agent 的“计划/记忆/协议/清单”等**开发治理资产**已迁移到仓库根目录：`agent-workbench/`（入口见 `agent-workbench/README.md`）。
 
 ## 对外（人类）文档在哪里？
 请从 `docs/README.md` 开始阅读（架构、API、指南等）。
-

@@ -15,4 +15,4 @@
 - `docs/guides/`：调试 SOP 与工作流
 
 ## coding agent 专用材料
-本仓库将 agent 专用材料集中到：`docs/agent/README.md`（含 changelog memory、plans、prompts、internal）。
+coding agent 的“开发治理/中间产物”（计划、记忆、协议、清单）位于：`agent-workbench/README.md`。

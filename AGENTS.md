@@ -7,28 +7,38 @@
 - 自然语言描述的内容，需要用中文输出（包括思维链和对话窗口的内容），但专业名词需要保持英文。
 
 ## 优先阅读的文档
-- 变更日志（近期改动）：`docs/agent/changelog.md`（只追加，不新增拆分文件）
+- coding agent 入口：`agent-workbench/README.md`
+- 简化摘要（近期改动）：`agent-workbench/memory/SUMMARY.md`（必要时可 compact）
 - 架构与数据流：[docs/arch/overview.md](docs/arch/overview.md)
 - 工具接口：[docs/api/spec.md](docs/api/spec.md)
 - 调试 SOP：[docs/guides/debug_sop.md](docs/guides/debug_sop.md)
 - 工作流说明：[docs/guides/workflows.md](docs/guides/workflows.md)
-- Prompt 模板：`docs/agent/prompts/*`
-- 规划文档：`docs/agent/plans/*`
+- 产品 Prompt 模板（用于理解/复用）：`docs/agent/prompts/*`
+- 规划文档：`agent-workbench/plans/active/*`（当前活跃）
+- 详细记忆（按需加载）：`agent-workbench/memory/entries/*`
 
 ## 代码修改约束
 - **不要修改 `rdc/`**：该目录为上游 RenderDoc 源码，仅作为参考/镜像。
-- **MCP 工具保持确定性**：新增/修改工具时同步更新 `agent/tools/renderdoc_tools.py` 的 `export_schema()` 与相关文档。
+- **MCP 工具保持确定性**：新增/修改工具时同步更新 `runtime/agent/tools/renderdoc_tools.py` 的 `export_schema()` 与相关文档。
 - **安全边界**：Orchestrator 仅监听本机端口，不开启公网服务；严禁把 API Key 写入仓库。
 - **前端最小依赖**：避免引入新的远程资产或复杂依赖，保持本地可运行。
 
 ## 文档同步
 - 变更启动方式、端口或环境变量时，需同步更新 `README.md`。
 - 需要新增流程说明时，优先扩展 `docs/` 内对应模块，而不是把长篇方案放在此文件。
-- 每次迭代完成后，将变更摘要追加到 `docs/agent/changelog.md`；不要再新建 `docs/changelog/` 或按日期拆分的 changelog 文件。
+- 每次迭代完成后：
+  - 新增一份详细记录：`agent-workbench/memory/entries/YYYY-MM-DD_*.md`（只追加新文件）
+  - 更新简化摘要：`agent-workbench/memory/SUMMARY.md`（必要时 compact）
+
+## 编码与文本处理注意事项（PowerShell）
+- 避免在 Windows PowerShell 中用管道把脚本/文本直接喂给外部程序（例如 `@'... '@ | python -`）去改中文文档：管道会按当前 code page 转码，无法表示的字符可能被替换成 `?`，导致文档内容“变问号”。
+- 必须用脚本批量改文件时，优先选择**明确指定 UTF-8** 的方式：
+  - 直接用 `python -c` 读取/写入，并在 `open(..., encoding='utf-8')` 中显式指定编码；或
+  - 在 PowerShell 侧用 `Set-Content -Encoding utf8` / `Out-File -Encoding utf8` 写回；必要时先设置 `$OutputEncoding` 为 UTF-8 再做管道操作。
 
 ## 工作方式（Agent/LLM）
-- **先读再改**：在**新对话开启或任务上下文不明确时**，优先查阅上面的 `docs/*`（特别是 `docs/agent/changelog.md` 的近期记录），确保不与架构/接口约定冲突。在连续对话中，已掌握上下文后无需重复读取。
-- **结构分离**：`docs/` 面向人类；`docs/agent/` 面向 coding agent。避免把 agent-only 的计划/记忆/Prompt 混放在面向人类的文档目录中。
+- **先读再改**：在**新对话开启或任务上下文不明确时**，优先查阅 `agent-workbench/README.md` 与 `agent-workbench/memory/SUMMARY.md` 的近期摘要，并按需回看 `docs/*`，确保不与架构/接口约定冲突。在连续对话中，已掌握上下文后无需重复读取。
+- **结构分离**：`docs/`（含 `docs/agent/`）属于**项目本身**的功能/架构/接口文档；`agent-workbench/` 用于**coding agent 开发治理**（计划/记忆/协议/清单等）。避免把治理资产混放进 `docs/`（尤其是 `docs/agent/`）。
 - **小步迭代**：优先选择最小可行改动（MVP），避免无关重构与大范围格式化。
 - **不确定先澄清**：当需要改动的文件不明确或涉及跨模块决策时，先向用户确认范围与目标。
 
@@ -40,7 +50,7 @@
 - 工具行为应**可复现**：避免使用不稳定的随机性/时间依赖输出；如必须使用，需提供可配置且默认固定的种子或确定性策略。
 - 工具接口应**清晰报错**：返回结构化错误信息（含错误码/原因/可行动建议），避免吞错或仅打印日志。
 - 任何对工具输入/输出 schema 的变更：必须同步更新
-  - `agent/tools/renderdoc_tools.py` 中的 `export_schema()`
+  - `runtime/agent/tools/renderdoc_tools.py` 中的 `export_schema()`
   - 相关接口文档（通常是 `docs/api_spec.md` 或对应模块文档）
 - 保持**本机安全边界**：工具/服务端默认只绑定 `127.0.0.1`，不引入公网监听的默认配置。
 

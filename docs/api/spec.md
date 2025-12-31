@@ -1,6 +1,6 @@
 # RenderDoc MCP 工具接口规范（Version: 0.1）
 
-以下接口由 `agent.tools.renderdoc_tools.RenderdocTools` 暴露，供 Planner/Explainer 通过 MCP 调用。所有返回值均可安全序列化为 JSON。
+以下接口由 `runtime.agent.tools.renderdoc_tools.RenderdocTools` 暴露，供 Planner/Action 通过 MCP 调用。所有返回值均可安全序列化为 JSON。
 
 ## iterate_actions
 - **描述**：展开指定捕获文件的 action 树，返回扁平列表。
@@ -54,7 +54,7 @@
 ## Orchestrator HTTP 接口（0.2.0）
 
 ### POST /nl-debug
-- **入参**：`{ question: string, capturePath: string, openrouterKey?: string }`
+- **入参**：`{ question: string, capturePath: string, openrouterKey?: string, plannerModel?: string, actionModel?: string, projectId?: string }`
 - **返回**：
   ```json
   {
@@ -80,14 +80,41 @@
   }
   ```
 
-### POST /upload-capture?name=<rdc>
-- **描述**：上传 `.rdc` 捕获到 orchestrator 本地 `captures/` 目录。
-- **返回**：`{ capturePath: string }`
+### POST /projects
+- **入参**：`{ name?: string }`
+- **返回**：`{ projectId: string }`
+
+### GET /projects
+- **返回**：`{ projects: [{ id, name, updatedAt, hasCapture }] }`
+
+### POST /projects/import
+- **描述**：导入已有项目文件（`multipart/form-data`，允许 `project.json`/`history.json`/资源文件）
+- **返回**：`{ projectId: string }`
+
+### GET /projects/:id
+- **返回**：`{ project: { id, name, createdAt, updatedAt, captures } }`
+
+### POST /projects/:id/upload-capture?name=<rdc>
+- **描述**：上传 `.rdc` 到项目目录的 `captures/`
+- **返回**：`{ capturePath: string }`（项目内相对路径）
+
+### GET /projects/:id/history
+- **返回**：`{ version, submissions, messages }`
+
+### PUT /projects/:id/history
+- **入参**：`{ submissions, messages }`
+- **返回**：`{ ok: true }`
+
+### GET /projects/:id/resources
+- **返回**：`{ resources: [{ path, type, size, updatedAt }] }`
+
+### GET /projects/:id/resource?path=...
+- **描述**：读取项目内资源文件（白名单路径）
 
 ### GET /health
 - **描述**：健康检查，供前端 Settings 模态框测试连通性。
 - **返回**：`{ status: 'ok', version: '0.2.0', mcp: { host, port }, models: { planner, explainer } }`
 
 ### GET /models
-- **描述**：返回可用的 Planner/Explainer 模型列表。
-- **返回**：`{ models: [{ id, role }], default: string }`
+- **描述**：返回可用的 Planner/Action 模型列表。
+- **返回**：`{ models: [{ id, label, role }], defaultPlanner: string, defaultAction: string }`

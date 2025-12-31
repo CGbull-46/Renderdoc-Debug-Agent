@@ -48,7 +48,7 @@ if /I "%NPM_CMD%"=="npm" (
 )
 
 REM Go to frontend directory
-cd /d "%~dp0frontend"
+cd /d "%~dp0runtime\\frontend"
 if errorlevel 1 goto frontend_missing
 
 echo [OK] Working directory: %CD%

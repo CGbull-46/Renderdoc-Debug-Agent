@@ -26,26 +26,26 @@ REM ======================================================================
 
 echo.
 echo [1/3] Starting Python MCP server...
-start "RenderDoc MCP Server" cmd /c "python -m agent && pause"
+start "RenderDoc MCP Server" cmd /c "python -m runtime.agent && pause"
 
 echo.
 echo [2/3] Starting Node.js orchestrator...
-pushd "%~dp0..\orchestrator"
+pushd "%~dp0..\runtime\orchestrator"
 if not exist node_modules (
   echo Installing Node.js dependencies for orchestrator...
-  npm install ws axios
+  npm install
 )
 start "RenderDoc Orchestrator" cmd /c "node server.js && pause"
 popd
 
 echo.
 echo [3/3] Starting React frontend...
-pushd "%~dp0..\frontend"
+pushd "%~dp0..\runtime\frontend"
 if not exist node_modules (
   echo Installing Node.js dependencies for frontend (this may take a while)...
   npm install
 )
-start "RenderDoc Frontend" cmd /c "npm run start"
+start "RenderDoc Frontend" cmd /c "npm run dev"
 popd
 
 echo.

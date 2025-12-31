@@ -20,26 +20,26 @@
 ## 手动启动
 ### 1) MCP Agent
 ```bash
-python -m agent
+python -m runtime.agent
 ```
 
 ### 2) Orchestrator
 ```bash
-cd orchestrator
+cd runtime/orchestrator
 npm install
 node server.js
 ```
 
 ### 3) Frontend
 ```bash
-cd frontend
+cd runtime/frontend
 npm install
-npm run start
+npm run dev
 ```
 
 可选：执行一次冒烟测试（需要设置 `RENDERDOC_CAPTURE`）
 ```bash
-python -m agent.smoke_test
+python -m runtime.agent.smoke_test
 ```
 
 ## 配置说明
@@ -47,6 +47,10 @@ python -m agent.smoke_test
   - `apiKey`: OpenRouter API Key
   - `plannerModel`: 规划模型（默认 `gpt-4o-mini`）
   - `explainerModel`: 解释模型（默认 `gpt-4o`）
+- `config/models.json`
+  - `models`: 可选模型枚举（含 `id`/`label`/`role`）
+  - `defaultPlanner`: 默认 Planner 模型
+  - `defaultAction`: 默认 Action 模型
 
 - 环境变量（可替代或补充配置文件）：
   - `OPENROUTER_API_KEY`, `PLANNER_MODEL`, `EXPLAINER_MODEL`
@@ -55,7 +59,7 @@ python -m agent.smoke_test
 
 ## HTTP / MCP 接口
 ### Orchestrator HTTP
-- `POST /upload-capture?name=xxx.rdc`：上传 `.rdc`，返回 `capturePath`。
+- `POST /projects/:id/upload-capture?name=xxx.rdc`：上传 `.rdc` 到指定项目，返回 `capturePath`（项目内相对路径）。
 - `POST /nl-debug`：
   ```json
   { "question": "...", "capturePath": "...", "openrouterKey": "(optional)" }
@@ -69,18 +73,20 @@ python -m agent.smoke_test
 响应包含同样 `id`，并返回 `ok/result` 或 `error`。
 
 ## 仓库结构
-- `agent/`：RenderDoc MCP 工具与本地服务。
-- `orchestrator/`：OpenRouter 调度与 HTTP 入口。
-- `frontend/`：调试面板 UI。
+- `runtime/agent/`：RenderDoc MCP 工具与本地服务（Python）。
+- `runtime/orchestrator/`：OpenRouter 调度与 HTTP 入口（Node.js）。
+- `runtime/frontend/`：调试面板 UI（React）。
 - `docs/`：架构、SOP、Prompt 与 API 文档。
-- `captures/`：上传的 `.rdc`（运行时生成）。
+- `projects/`：项目工作区（运行时生成，默认不提交）。
 - `rdc/`：上游 RenderDoc 源码（只读，不在本项目中修改）。
 
 ## 规划（Plan）
-- Sidebar/Projects 与 Settings/Models 的下一步迭代计划：`docs/agent/plans/sidebar_projects_and_settings_models_plan.md`
+- 当前活跃计划：`agent-workbench/plans/active/`
+- 已归档计划：`agent-workbench/plans/archive/`
 
 ## 变更日志（Memory）
-- 统一的增量 changelog：`docs/agent/changelog.md`
+- 简化摘要：`agent-workbench/memory/SUMMARY.md`
+- 详细记录：`agent-workbench/memory/entries/`
 
 ## 注意事项
 - 不要提交真实 API Key；`config/openrouter.json` 已被 `.gitignore` 忽略。

@@ -27,23 +27,23 @@ pnpm-debug.log*
 .eslintcache
 
 # Build outputs
-/frontend/build/
-/frontend/dist/
-/frontend/.cache/
-/frontend/.parcel-cache/
-/frontend/.next/
-/frontend/.turbo/
-/frontend/.vite/
-/orchestrator/dist/
-/orchestrator/build/
-/orchestrator/.cache/
+/runtime/frontend/build/
+/runtime/frontend/dist/
+/runtime/frontend/.cache/
+/runtime/frontend/.parcel-cache/
+/runtime/frontend/.next/
+/runtime/frontend/.turbo/
+/runtime/frontend/.vite/
+/runtime/orchestrator/dist/
+/runtime/orchestrator/build/
+/runtime/orchestrator/.cache/
 /dist/
 /build/
 /coverage/
 /.cache/
 
 # Project runtime data & secrets
-/captures/
-/agent/temp/
+/projects/
+/runtime/agent/temp/
 /config/openrouter.json
 *.log
