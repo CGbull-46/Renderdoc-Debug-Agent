@@ -3,6 +3,11 @@
 用途：coding agent 启动时优先阅读本文件，用于快速决定是否需要加载某些 `entries/*` 以还原上下文。
 
 ## 最近变更（可 compact）
+- 2026-01-09：拆分 MCP/Orchestrator 启动脚本，避免 cmd /k 引号解析错误。详见 `agent-workbench/memory/entries/2026-01-09_bat_start_cmd_split.md`
+- 2026-01-09：bat 启动改用 `start /D` 指定工作目录，避免 cmd /k 引号解析错误。详见 `agent-workbench/memory/entries/2026-01-09_bat_start_workdir_fix.md`
+- 2026-01-09：修复 bat 路径尾随反斜杠导致的 cd /d 失败。详见 `agent-workbench/memory/entries/2026-01-09_bat_trailing_slash_fix.md`
+- 2026-01-09：修复 bat 的 cmd /k 起始命令解析，避免路径被当成命令执行。详见 `agent-workbench/memory/entries/2026-01-09_bat_cmdk_cd_fix.md`
+- 2026-01-09：修复 bat 启动脚本引号与 Python 参数解析，避免 MCP/Orchestrator 启动失败。详见 `agent-workbench/memory/entries/2026-01-09_bat_startup_quote_fix.md`
 - 2026-01-09：Sidebar 目录选择 + upload-capture 路径复制 + CORS + 模型列表回落修复。详见 `agent-workbench/memory/entries/2026-01-09_sidebar_folder_picker_and_copy_capture.md`
 - 2026-01-09：一键启动纳入本地 MCP Agent，补齐快速开始说明并同步 MCP 工具文档。详见 `agent-workbench/memory/entries/2026-01-09_local_agent_stack_mvp.md`
 - 2026-01-01：Settings 改为仅保存 API Key，bat 启动 Orchestrator 修复模型下拉默认问题。详见 `agent-workbench/memory/entries/2026-01-01_settings_key_only_and_bat_orch.md`

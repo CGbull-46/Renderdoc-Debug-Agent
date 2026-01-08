@@ -1,6 +1,9 @@
 @echo off
 setlocal enabledelayedexpansion
 
+REM Normalize repo root without trailing backslash (cmd cannot cd into "...\")
+for %%I in ("%~dp0.") do set "ROOT_DIR=%%~fI"
+
 REM RenderDoc Debug Agent - Full Stack Launcher
 REM Double-click to start MCP Agent + Orchestrator + Frontend UI on http://localhost:3000
 
@@ -42,10 +45,11 @@ echo.
 
 REM Try to find python
 set "PY_CMD="
+set "PY_ARGS="
 where python >nul 2>&1
 if not errorlevel 1 set "PY_CMD=python" & goto python_found
 where py >nul 2>&1
-if not errorlevel 1 set "PY_CMD=py -3" & goto python_found
+if not errorlevel 1 set "PY_CMD=py" & set "PY_ARGS=-3" & goto python_found
 
 :python_not_found
 echo [ERROR] python not found!
@@ -60,7 +64,12 @@ pause
 exit /b 1
 
 :python_found
-echo [OK] Found Python: %PY_CMD%
+if defined PY_ARGS (
+  set "PY_LAUNCH=%PY_CMD% %PY_ARGS%"
+) else (
+  set "PY_LAUNCH=%PY_CMD%"
+)
+echo [OK] Found Python: %PY_LAUNCH%
 echo.
 
 REM Use quoted command only for paths with spaces; avoid call "npm" which breaks in cmd
@@ -73,10 +82,10 @@ if /I "%NPM_CMD%"=="npm" (
 REM Start local MCP agent
 echo [STEP 1/4] Starting MCP Agent on ws://127.0.0.1:8765
 echo.
-start "RenderDoc MCP Agent" cmd /k "cd /d \"%~dp0\" && %PY_CMD% -m runtime.agent"
+start "RenderDoc MCP Agent" "%ROOT_DIR%\runtime\agent\start_mcp_agent.cmd" "%PY_CMD%" "%PY_ARGS%"
 
 REM Go to orchestrator directory
-cd /d "%~dp0runtime\\orchestrator"
+cd /d "%ROOT_DIR%\runtime\orchestrator"
 if errorlevel 1 goto orchestrator_missing
 
 echo [OK] Orchestrator directory: %CD%
@@ -100,10 +109,10 @@ echo.
 :start_orchestrator
 echo [STEP 2/4] Starting Orchestrator on http://localhost:8080
 echo.
-start "RenderDoc Orchestrator" cmd /k "cd /d \"%~dp0runtime\\orchestrator\" && node server.js"
+start "RenderDoc Orchestrator" "%ROOT_DIR%\runtime\orchestrator\start_orchestrator.cmd"
 
 REM Go to frontend directory
-cd /d "%~dp0runtime\\frontend"
+cd /d "%ROOT_DIR%\runtime\frontend"
 if errorlevel 1 goto frontend_missing
 
 echo [OK] Working directory: %CD%

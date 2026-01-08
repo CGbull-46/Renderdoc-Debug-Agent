@@ -43,7 +43,7 @@
 - **先重构再动手（Refinement）**：将模糊描述重构为精确工程问题：**核心技术点**（一句话）+ **现象量化**（指标/当前值/目标值）+ **可验证假设**（1～3 条，可用 log/trace/metrics/repro case 验证），并明确影响范围与成功判据。
 - **先 Survey 再提问（Module Survey）**：若问题暗示具体模块（如 Auth/DB/Cache/Queue/UI Rendering/Build/Observability），先做最小化的代码/配置检索并输出调研摘要：关键组件/文件（含命名/目录线索）、数据流与控制流（含同步/异步、事务/幂等/重试边界）、默认行为快照（输入/输出、失败模式、Top 3 knobs/参数）；信息不足时先给出“最小可行检索清单”（≤10 个关键词/典型目录/命名模式）；完成后再提出澄清问题与改动建议。
 - **结构分离**：`docs/`（含 `docs/agent/`）属于**项目本身**的功能/架构/接口文档；`agent-workbench/` 用于**coding agent 开发治理**（计划/记忆/协议/清单等）。避免把治理资产混放进 `docs/`（尤其是 `docs/agent/`）。
-- **计划与执行（Plan & Execution）**：输出 Step-by-Step 实施计划，每步包含“改哪里/怎么改/如何验证”；默认优先 **MVP**（最小改动/快速止血），避免无关重构与大范围格式化，并按需补充 **Enhanced**（结构性改进/长期收益）；输出代码/配置前先写清改动动机，并按需声明性能/可靠性/安全约束（如 `p95/p99 latency`、backpressure、idempotency、secret/PII logging、XSS/CSRF/CSP/JWT 等）与灰度/回滚条件；如用户要求交付建议，补充 branch/commit 拆分、canary/feature flag、回滚与迁移策略（如 `expand/contract`）。
+- **计划与执行（Plan & Execution）**：对于需要修改当前Project内的内容时候，必须输出 Step-by-Step 实施计划（UI面板上也需要显示给我看）；每步包含“改哪里/怎么改/如何验证”；默认优先 **MVP**（最小改动/快速止血），避免无关重构与大范围格式化，并按需补充 **Enhanced**（结构性改进/长期收益）；输出代码/配置前先写清改动动机，并按需声明性能/可靠性/安全约束（如 `p95/p99 latency`、backpressure、idempotency、secret/PII logging、XSS/CSRF/CSP/JWT 等）与灰度/回滚条件；如用户要求交付建议，补充 branch/commit 拆分、canary/feature flag、回滚与迁移策略（如 `expand/contract`）。
 - **收尾（Conclusion）**：以独立“总结”结束（中文 ≤3 行），并列出“修改/引用索引清单”（按本仓库模块分组，便于快速定位）。
 - **不确定先澄清**：当需要改动的文件不明确或涉及跨模块决策时，先向用户确认范围与目标。
 
