@@ -12,11 +12,11 @@
 2. 确保 RenderDoc Python 绑定可用：
    - 将 RenderDoc 的 `python/` 目录加入 `PYTHONPATH`，或
    - 设置环境变量 `RENDERDOC_PYTHON_PATH`。
-3. **快速预览**：双击运行 `start_debug_agent.bat`，自动打开前端 UI（http://localhost:3000）。
-4. **完整配置**（可选，用于后端调试功能）：
+3. **快速预览**：双击运行 `start_debug_agent.bat`，自动启动 MCP Agent + Orchestrator + 前端 UI（http://localhost:3000）。
+4. **完整配置**（可选，用于 /nl-debug 等功能）：
    - 前端 Settings 填入 OpenRouter API Key 并 Apply（会写入 `runtime/config/.env`），或
-   - 手动创建 `runtime/config/.env`，设置 `OPENROUTER_API_KEY` 等。
-   - 手动启动后端组件（见下方"手动启动"章节）。
+   - 手动创建 `runtime/config/.env`，设置 `OPENROUTER_API_KEY`。
+   - 如不使用一键脚本，可按下方"手动启动"逐个启动组件。
 
 ## 手动启动
 ### 1) MCP Agent
@@ -46,8 +46,6 @@ python -m runtime.agent.smoke_test
 ## 配置说明
 - `runtime/config/.env`
   - `OPENROUTER_API_KEY`: OpenRouter API Key
-  - `PLANNER_MODEL`: 规划模型（默认 `gpt-4o-mini`）
-  - `EXPLAINER_MODEL`: 解释模型（默认 `gpt-4o`）
 - `runtime/config/models.json`
   - `models`: 可选模型枚举（含 `id`/`label`/`role`）
   - `defaultPlanner`: 默认 Planner 模型

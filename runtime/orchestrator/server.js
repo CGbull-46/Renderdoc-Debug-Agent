@@ -15,11 +15,8 @@ const ORCH_PORT = Number(process.env.ORCH_PORT || 8080);
 const VERSION = '0.2.0';
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const CONFIG_ROOT = path.join(REPO_ROOT, 'runtime', 'config');
-const LEGACY_CONFIG_ROOT = path.join(REPO_ROOT, 'config');
 const CONFIG_ENV_PATH = path.join(CONFIG_ROOT, '.env');
 const MODELS_CONFIG_PATH = path.join(CONFIG_ROOT, 'models.json');
-const LEGACY_MODELS_CONFIG_PATH = path.join(LEGACY_CONFIG_ROOT, 'models.json');
-const LEGACY_OPENROUTER_PATH = path.join(LEGACY_CONFIG_ROOT, 'openrouter.json');
 const PROJECTS_ROOT = path.join(REPO_ROOT, 'projects');
 
 function parseEnvFile(content) {
@@ -71,21 +68,6 @@ function writeEnvFile(filePath, envMap) {
   fs.writeFileSync(filePath, `${entries.join('\n')}${entries.length ? '\n' : ''}`, 'utf-8');
 }
 
-function loadLegacyOpenRouter() {
-  if (!fs.existsSync(LEGACY_OPENROUTER_PATH)) return {};
-  try {
-    const raw = fs.readFileSync(LEGACY_OPENROUTER_PATH, 'utf-8');
-    const cfg = JSON.parse(raw);
-    return {
-      apiKey: typeof cfg.apiKey === 'string' ? cfg.apiKey : '',
-      plannerModel: typeof cfg.plannerModel === 'string' ? cfg.plannerModel : '',
-      explainerModel: typeof cfg.explainerModel === 'string' ? cfg.explainerModel : '',
-    };
-  } catch (e) {
-    return {};
-  }
-}
-
 function pickValue(...candidates) {
   for (const candidate of candidates) {
     if (typeof candidate === 'string' && candidate.trim()) {
@@ -97,19 +79,14 @@ function pickValue(...candidates) {
 
 function loadConfig() {
   const envFile = loadEnvFile(CONFIG_ENV_PATH);
-  const legacy = loadLegacyOpenRouter();
   return {
-    apiKey: pickValue(envFile.OPENROUTER_API_KEY, process.env.OPENROUTER_API_KEY, legacy.apiKey, ''),
+    apiKey: pickValue(envFile.OPENROUTER_API_KEY, process.env.OPENROUTER_API_KEY, ''),
     plannerModel: pickValue(
-      envFile.PLANNER_MODEL,
       process.env.PLANNER_MODEL,
-      legacy.plannerModel,
       'gpt-4o-mini'
     ),
     explainerModel: pickValue(
-      envFile.EXPLAINER_MODEL,
       process.env.EXPLAINER_MODEL,
-      legacy.explainerModel,
       'gpt-4o'
     ),
   };
@@ -288,7 +265,7 @@ function listResources(projectDir) {
 }
 
 function loadModelsConfig() {
-  const configPath = fs.existsSync(MODELS_CONFIG_PATH) ? MODELS_CONFIG_PATH : LEGACY_MODELS_CONFIG_PATH;
+  const configPath = MODELS_CONFIG_PATH;
   const fallback = {
     models: [
       { id: CONFIG.plannerModel, label: CONFIG.plannerModel, role: 'planner' },
@@ -316,6 +293,12 @@ function loadModelsConfig() {
 function json(res, status, payload) {
   res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(payload, null, 2));
+}
+
+function applyCors(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
 function readJsonBody(req) {
@@ -558,6 +541,20 @@ function buildCaptureList(projectDir) {
     });
 }
 
+function upsertCapture(projectDir, captureEntry) {
+  return updateProjectMeta(projectDir, project => {
+    const captures = Array.isArray(project.captures) ? project.captures : [];
+    const nextCaptures = captures.filter(
+      item => item.path !== captureEntry.path && item.name !== captureEntry.name
+    );
+    return {
+      ...project,
+      updatedAt: nowIso(),
+      captures: [captureEntry, ...nextCaptures],
+    };
+  });
+}
+
 function handleProjectsList(res) {
   return json(res, 200, { projects: listProjects() });
 }
@@ -657,7 +654,7 @@ function handleProjectDetail(res, projectId) {
   return json(res, 200, { project });
 }
 
-function handleProjectUpload(req, res, url, projectId) {
+async function handleProjectUpload(req, res, url, projectId) {
   const projectDir = getProjectDir(projectId);
   if (!projectDir) return json(res, 404, { error: 'project_not_found' });
   const name = url.searchParams.get('name') || `capture_${Date.now()}.rdc`;
@@ -670,18 +667,40 @@ function handleProjectUpload(req, res, url, projectId) {
   const destPath = path.join(capturesDir, safeName);
   const relativePath = `captures/${safeName}`;
 
+  const contentType = req.headers['content-type'] || '';
+  if (contentType.includes('application/json')) {
+    let body;
+    try {
+      body = await readJsonBody(req);
+    } catch (e) {
+      return json(res, 400, { error: 'invalid_json', detail: String(e) });
+    }
+    const sourcePath = typeof body.sourcePath === 'string' ? body.sourcePath.trim() : '';
+    if (!sourcePath) {
+      return json(res, 400, { error: 'source_path_required' });
+    }
+    let mcpResponse;
+    try {
+      mcpResponse = await callMcpTool('copy_capture', {
+        source_path: sourcePath,
+        dest_path: destPath,
+        overwrite: true,
+      });
+    } catch (e) {
+      return json(res, 500, { error: 'copy_failed', detail: String(e) });
+    }
+    if (!mcpResponse || mcpResponse.ok === false) {
+      return json(res, 500, { error: 'copy_failed', detail: mcpResponse?.error || mcpResponse });
+    }
+    upsertCapture(projectDir, { name: safeName, path: relativePath, addedAt: nowIso() });
+    return json(res, 200, { capturePath: relativePath, copied: true, mcp: mcpResponse });
+  }
+
   const writeStream = fs.createWriteStream(destPath);
+  writeStream.on('error', e => json(res, 500, { error: 'upload_failed', detail: String(e) }));
   req.pipe(writeStream);
   req.on('end', () => {
-    const timestamp = nowIso();
-    updateProjectMeta(projectDir, project => {
-      const captures = Array.isArray(project.captures) ? project.captures : [];
-      return {
-        ...project,
-        updatedAt: timestamp,
-        captures: [{ name: safeName, path: relativePath, addedAt: timestamp }, ...captures],
-      };
-    });
+    upsertCapture(projectDir, { name: safeName, path: relativePath, addedAt: nowIso() });
     json(res, 200, { capturePath: relativePath });
   });
   req.on('error', e => json(res, 500, { error: 'upload_failed', detail: String(e) }));
@@ -761,8 +780,6 @@ function handleModels(res) {
 function buildSettingsPayload(config) {
   return {
     hasApiKey: Boolean(config.apiKey),
-    plannerModel: config.plannerModel,
-    actionModel: config.explainerModel,
   };
 }
 
@@ -779,39 +796,24 @@ async function handleSettingsPut(req, res) {
     return json(res, 400, { error: 'invalid_json', detail: String(e) });
   }
 
-  const envData = loadEnvFile(CONFIG_ENV_PATH);
   const hasApiKey = Object.prototype.hasOwnProperty.call(body, 'apiKey');
-  if (hasApiKey) {
-    const apiKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : '';
-    if (apiKey) {
-      envData.OPENROUTER_API_KEY = apiKey;
-    } else {
-      delete envData.OPENROUTER_API_KEY;
-    }
+  const apiKey = hasApiKey && typeof body.apiKey === 'string' ? body.apiKey.trim() : '';
+  const envData = {};
+  if (apiKey) {
+    envData.OPENROUTER_API_KEY = apiKey;
   }
-
-  const hasPlanner = Object.prototype.hasOwnProperty.call(body, 'plannerModel');
-  if (hasPlanner) {
-    const plannerModel = typeof body.plannerModel === 'string' ? body.plannerModel.trim() : '';
-    if (plannerModel) {
-      envData.PLANNER_MODEL = plannerModel;
-    }
-  }
-
-  const hasAction = Object.prototype.hasOwnProperty.call(body, 'actionModel');
-  if (hasAction) {
-    const actionModel = typeof body.actionModel === 'string' ? body.actionModel.trim() : '';
-    if (actionModel) {
-      envData.EXPLAINER_MODEL = actionModel;
-    }
-  }
-
   writeEnvFile(CONFIG_ENV_PATH, envData);
   CONFIG = loadConfig();
   return json(res, 200, { ok: true, ...buildSettingsPayload(CONFIG) });
 }
 
 const server = http.createServer((req, res) => {
+  applyCors(res);
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
   const url = new URL(req.url, `http://localhost:${ORCH_PORT}`);
 
   if (req.method === 'GET' && url.pathname === '/health') {
@@ -853,7 +855,10 @@ const server = http.createServer((req, res) => {
       return handleProjectDetail(res, projectId);
     }
     if (segments.length === 3 && segments[2] === 'upload-capture' && req.method === 'POST') {
-      return handleProjectUpload(req, res, url, projectId);
+      handleProjectUpload(req, res, url, projectId).catch(err =>
+        json(res, 500, { error: 'upload_failed', detail: String(err) })
+      );
+      return;
     }
     if (segments.length === 3 && segments[2] === 'history' && req.method === 'GET') {
       return handleProjectHistoryGet(res, projectId);

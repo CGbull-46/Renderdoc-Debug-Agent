@@ -17,7 +17,6 @@ import {
   RefreshCcw,
   Settings as SettingsIcon,
   Sparkles,
-  UploadCloud,
 } from 'lucide-react';
 import {
   CoTStep,
@@ -33,12 +32,10 @@ import {
 } from './types';
 
 type CanvasMode = 'aggregated' | 'single';
-type SettingsPayload = { apiKey?: string; plannerModel?: string; actionModel?: string };
+type SettingsPayload = { apiKey?: string };
 type SettingsResponse = {
   ok?: boolean;
   hasApiKey?: boolean;
-  plannerModel?: string;
-  actionModel?: string;
   error?: string;
   detail?: string;
 };
@@ -56,6 +53,70 @@ const STORAGE_KEYS = {
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+type DirectoryFile = { file: File; relativePath: string };
+type DirectorySelection = { name: string; files: DirectoryFile[] };
+
+const pickDirectoryHandle = async () => {
+  if (typeof window === 'undefined') return null;
+  const picker = (window as Window & { showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle> })
+    .showDirectoryPicker;
+  if (!picker) return null;
+  try {
+    return await picker();
+  } catch (err) {
+    if ((err as DOMException).name === 'AbortError') return null;
+    throw err;
+  }
+};
+
+const collectDirectoryFiles = async (
+  handle: FileSystemDirectoryHandle,
+  prefix = ''
+): Promise<DirectoryFile[]> => {
+  const entries: DirectoryFile[] = [];
+  for await (const entry of handle.values()) {
+    if (entry.kind === 'file') {
+      const file = await entry.getFile();
+      const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
+      entries.push({ file, relativePath });
+    } else if (entry.kind === 'directory') {
+      const nextPrefix = prefix ? `${prefix}/${entry.name}` : entry.name;
+      const nested = await collectDirectoryFiles(entry, nextPrefix);
+      entries.push(...nested);
+    }
+  }
+  return entries;
+};
+
+const pickDirectorySelection = async (loadFiles: boolean): Promise<DirectorySelection | null> => {
+  const handle = await pickDirectoryHandle();
+  if (!handle) return null;
+  const files = loadFiles ? await collectDirectoryFiles(handle) : [];
+  return { name: handle.name || 'Project', files };
+};
+
+const normalizeFileListSelection = (files: FileList): DirectorySelection => {
+  const items = Array.from(files);
+  if (items.length === 0) {
+    return { name: 'Project', files: [] };
+  }
+  const first = items[0] as File & { webkitRelativePath?: string };
+  const firstPath = (first.webkitRelativePath || first.name).replace(/\\/g, '/');
+  const rootName = firstPath.includes('/') ? firstPath.split('/')[0] : firstPath || 'Project';
+  const normalized = items
+    .map(file => {
+      const rawPath = ((file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name).replace(
+        /\\/g,
+        '/'
+      );
+      const parts = rawPath.split('/');
+      const relativePath = parts.length > 1 ? parts.slice(1).join('/') : file.name;
+      return { file, relativePath };
+    })
+    .filter(item => item.relativePath);
+  return { name: rootName, files: normalized };
+};
 
 function statusColor(status?: SubmissionStatus) {
   if (status === 'processing') return 'text-status-processing';
@@ -357,13 +418,11 @@ function ResizeHandle({
 function Sidebar({
   connection,
   onOpenSettings,
+  onOpenProject,
   onCreateProject,
-  onToggleOpenPanel,
-  openPanel,
   onSelectProject,
   onRefreshProjects,
   loadingProjects,
-  onImportProject,
   importing,
   projects,
   activeProject,
@@ -377,13 +436,11 @@ function Sidebar({
 }: {
   connection: { state: 'connected' | 'disconnected' | 'unknown'; message?: string };
   onOpenSettings: () => void;
+  onOpenProject: () => void;
   onCreateProject: () => void;
-  onToggleOpenPanel: () => void;
-  openPanel: boolean;
   onSelectProject: (projectId: string) => void;
   onRefreshProjects: () => void;
   loadingProjects: boolean;
-  onImportProject: (files: FileList) => void;
   importing: boolean;
   projects: ProjectSummary[];
   activeProject: ProjectMeta | null;
@@ -420,10 +477,11 @@ function Sidebar({
       <div className="flex flex-col gap-2">
         <button
           className="flex items-center justify-center gap-2 rounded-xl border border-status-processing/60 bg-status-processing/20 px-3 py-2 text-sm font-semibold text-status-processing transition hover:shadow-glow"
-          onClick={onToggleOpenPanel}
+          onClick={onOpenProject}
         >
           <FolderOpen className="h-4 w-4" /> Open Project
         </button>
+        {importing && <div className="text-xs text-status-processing">Opening project...</div>}
         <button
           className="flex items-center justify-center gap-2 rounded-xl border border-obsidian-border bg-obsidian-bg px-3 py-2 text-sm font-semibold text-obsidian-primaryText transition hover:bg-obsidian-panel"
           onClick={onCreateProject}
@@ -432,62 +490,42 @@ function Sidebar({
         </button>
       </div>
 
-      {openPanel && (
-        <div className="space-y-3 rounded-xl border border-obsidian-border bg-obsidian-bg p-3">
-          <div className="flex items-center justify-between text-xs font-semibold uppercase text-obsidian-secondaryText">
-            Projects
-            <button
-              className="flex items-center gap-1 text-obsidian-secondaryText hover:text-obsidian-primaryText"
-              onClick={onRefreshProjects}
-              type="button"
-            >
-              <RefreshCcw className="h-3 w-3" /> Refresh
-            </button>
-          </div>
-          {loadingProjects && <div className="text-xs text-status-processing">Loading projects...</div>}
-          <div className="space-y-2">
-            {projects.length === 0 && <div className="text-xs text-obsidian-secondaryText">No projects</div>}
-            {projects.map(project => (
-              <button
-                key={project.id}
-                className={`flex w-full items-center justify-between rounded-lg border px-2 py-2 text-left text-sm transition ${
-                  project.id === activeProject?.id
-                    ? 'border-status-processing/50 bg-status-processing/10'
-                    : 'border-obsidian-border hover:bg-obsidian-panel'
-                }`}
-                onClick={() => onSelectProject(project.id)}
-              >
-                <div>
-                  <div className="font-semibold text-obsidian-primaryText">{project.name}</div>
-                  <div className="text-xs text-obsidian-secondaryText">{project.id}</div>
-                </div>
-                <div className="text-right text-xs text-obsidian-secondaryText">
-                  <div>{new Date(project.updatedAt).toLocaleString()}</div>
-                  <div>{project.hasCapture ? 'Has capture' : 'Empty'}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-          <label className="block rounded-lg border border-obsidian-border bg-obsidian-panel px-3 py-2 text-xs text-obsidian-secondaryText">
-            <div className="mb-2 flex items-center gap-2 font-semibold text-obsidian-primaryText">
-              <UploadCloud className="h-4 w-4" /> Import project (folder or files)
-            </div>
-            {/* @ts-expect-error webkitdirectory is supported in Chromium-based browsers */}
-            <input
-              type="file"
-              className="w-full text-obsidian-secondaryText"
-              onChange={e => {
-                const files = e.target.files;
-                if (files && files.length > 0) onImportProject(files);
-              }}
-              multiple
-              webkitdirectory="true"
-              disabled={importing}
-            />
-            {importing && <div className="mt-1 text-xs text-status-processing">Importing...</div>}
-          </label>
+      <div className="space-y-3 rounded-xl border border-obsidian-border bg-obsidian-bg p-3">
+        <div className="flex items-center justify-between text-xs font-semibold uppercase text-obsidian-secondaryText">
+          Projects
+          <button
+            className="flex items-center gap-1 text-obsidian-secondaryText hover:text-obsidian-primaryText"
+            onClick={onRefreshProjects}
+            type="button"
+          >
+            <RefreshCcw className="h-3 w-3" /> Refresh
+          </button>
         </div>
-      )}
+        {loadingProjects && <div className="text-xs text-status-processing">Loading projects...</div>}
+        <div className="space-y-2">
+          {projects.length === 0 && <div className="text-xs text-obsidian-secondaryText">No projects</div>}
+          {projects.map(project => (
+            <button
+              key={project.id}
+              className={`flex w-full items-center justify-between rounded-lg border px-2 py-2 text-left text-sm transition ${
+                project.id === activeProject?.id
+                  ? 'border-status-processing/50 bg-status-processing/10'
+                  : 'border-obsidian-border hover:bg-obsidian-panel'
+              }`}
+              onClick={() => onSelectProject(project.id)}
+            >
+              <div>
+                <div className="font-semibold text-obsidian-primaryText">{project.name}</div>
+                <div className="text-xs text-obsidian-secondaryText">{project.id}</div>
+              </div>
+              <div className="text-right text-xs text-obsidian-secondaryText">
+                <div>{new Date(project.updatedAt).toLocaleString()}</div>
+                <div>{project.hasCapture ? 'Has capture' : 'Empty'}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="rounded-xl border border-obsidian-border bg-obsidian-bg p-3">
         <div className="mb-2 text-xs font-semibold uppercase text-obsidian-secondaryText">Active Project</div>
@@ -760,7 +798,6 @@ const DebugPanel = () => {
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [activeProject, setActiveProject] = useState<ProjectMeta | null>(null);
   const [projectMode, setProjectMode] = useState<'open' | 'create' | null>(null);
-  const [projectPanelOpen, setProjectPanelOpen] = useState(false);
   const [resources, setResources] = useState<ProjectResource[]>([]);
   const [loadingResources, setLoadingResources] = useState(false);
   const [loadingProjects, setLoadingProjects] = useState(false);
@@ -773,6 +810,8 @@ const DebugPanel = () => {
     | { item: ProjectResource; content?: string; url?: string; error?: string; loading: boolean }
     | null
   >(null);
+  const openProjectInputRef = useRef<HTMLInputElement | null>(null);
+  const createProjectInputRef = useRef<HTMLInputElement | null>(null);
   const layoutRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
     type: 'sidebar' | 'feed';
@@ -920,12 +959,6 @@ const DebugPanel = () => {
         throw new Error(data?.error || 'Settings request failed');
       }
       setHasSavedKey(Boolean(data.hasApiKey));
-      if (data.plannerModel) {
-        setPlannerModel(prev => prev || data.plannerModel || '');
-      }
-      if (data.actionModel) {
-        setActionModel(prev => prev || data.actionModel || '');
-      }
     } catch (e) {
       setConnection({ state: 'disconnected', message: String(e) });
     }
@@ -940,9 +973,13 @@ const DebugPanel = () => {
       const res = await fetch(`${BASE_URL}/models`);
       const data = (await res.json()) as ModelsResponse;
       const nextModels = Array.isArray(data.models) ? data.models : [];
+      const defaultPlanner = data.defaultPlanner || nextModels[0]?.id || '';
+      const defaultAction = data.defaultAction || nextModels[0]?.id || '';
+      const hasPlanner = nextModels.some(model => model.id === plannerModel);
+      const hasAction = nextModels.some(model => model.id === actionModel);
       setModels(nextModels);
-      if (!plannerModel) setPlannerModel(data.defaultPlanner || nextModels[0]?.id || '');
-      if (!actionModel) setActionModel(data.defaultAction || nextModels[0]?.id || '');
+      if (!plannerModel || !hasPlanner) setPlannerModel(defaultPlanner);
+      if (!actionModel || !hasAction) setActionModel(defaultAction);
     } catch (e) {
       setConnection({ state: 'disconnected', message: String(e) });
     }
@@ -968,10 +1005,7 @@ const DebugPanel = () => {
     setActionModel(next.actionModel);
 
     try {
-      const payload: SettingsPayload = {
-        plannerModel: next.plannerModel.trim(),
-        actionModel: next.actionModel.trim(),
-      };
+      const payload: SettingsPayload = {};
       if (next.apiKey.trim()) {
         payload.apiKey = next.apiKey.trim();
       }
@@ -987,8 +1021,6 @@ const DebugPanel = () => {
       }
 
       setHasSavedKey(Boolean(saveData.hasApiKey));
-      if (saveData.plannerModel) setPlannerModel(saveData.plannerModel);
-      if (saveData.actionModel) setActionModel(saveData.actionModel);
       setApiKey('');
 
       setTestStatus({ state: 'loading', message: 'Testing connectivity...' });
@@ -1007,9 +1039,7 @@ const DebugPanel = () => {
     }
   };
 
-  const handleCreateProject = async () => {
-    const name = window.prompt('Project name (optional)');
-    if (name === null) return;
+  const createProjectWithName = async (name: string) => {
     setProjectMode('create');
     try {
       const res = await fetch(`${BASE_URL}/projects`, {
@@ -1020,7 +1050,6 @@ const DebugPanel = () => {
       const data = await res.json();
       if (data?.projectId) {
         setActiveProjectId(data.projectId);
-        setProjectPanelOpen(false);
         refreshProjects();
       }
     } catch (e) {
@@ -1028,27 +1057,66 @@ const DebugPanel = () => {
     }
   };
 
+  const handleOpenProject = async () => {
+    const supportsPicker = typeof window !== 'undefined' && 'showDirectoryPicker' in window;
+    if (supportsPicker) {
+      const selection = await pickDirectorySelection(true);
+      if (!selection) return;
+      if (selection.files.length === 0) {
+        setConnection({ state: 'disconnected', message: 'Selected folder is empty.' });
+        return;
+      }
+      await handleImportProject(selection);
+      return;
+    }
+    openProjectInputRef.current?.click();
+  };
+
+  const handleCreateProject = async () => {
+    const supportsPicker = typeof window !== 'undefined' && 'showDirectoryPicker' in window;
+    if (supportsPicker) {
+      const selection = await pickDirectorySelection(false);
+      if (!selection) return;
+      createProjectWithName(selection.name);
+      return;
+    }
+    createProjectInputRef.current?.click();
+  };
+
+  const handleOpenProjectInput = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const selection = normalizeFileListSelection(files);
+    if (selection.files.length === 0) {
+      setConnection({ state: 'disconnected', message: 'Selected folder has no importable files.' });
+      return;
+    }
+    handleImportProject(selection);
+  };
+
+  const handleCreateProjectInput = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const selection = normalizeFileListSelection(files);
+    createProjectWithName(selection.name);
+  };
+
   const handleSelectProject = (projectId: string) => {
     setProjectMode('open');
     setActiveProjectId(projectId);
-    setProjectPanelOpen(false);
   };
 
-  const handleImportProject = async (files: FileList) => {
-    if (!files || files.length === 0) return;
+  const handleImportProject = async (selection: DirectorySelection) => {
+    if (!selection.files.length) return;
     setImportingProject(true);
     try {
       const form = new FormData();
-      Array.from(files).forEach(file => {
-        const relativePath = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
-        form.append('files', file, relativePath);
+      selection.files.forEach(item => {
+        form.append('files', item.file, item.relativePath);
       });
       const res = await fetch(`${BASE_URL}/projects/import`, { method: 'POST', body: form });
       const data = await res.json();
       if (data?.projectId) {
         setProjectMode('open');
         setActiveProjectId(data.projectId);
-        setProjectPanelOpen(false);
         refreshProjects();
       }
     } catch (e) {
@@ -1058,6 +1126,13 @@ const DebugPanel = () => {
     }
   };
 
+  const getLocalFilePath = (file: File) => {
+    const pathValue = (file as File & { path?: string }).path;
+    if (!pathValue) return '';
+    if (/fakepath/i.test(pathValue)) return '';
+    return pathValue;
+  };
+
   const handleUpload = async (file: File) => {
     if (!activeProjectId) {
       setConnection({ state: 'disconnected', message: 'Please select a project first.' });
@@ -1065,17 +1140,25 @@ const DebugPanel = () => {
     }
     setUploading(true);
     try {
+      const url = `${BASE_URL}/projects/${activeProjectId}/upload-capture?name=${encodeURIComponent(file.name)}`;
+      const sourcePath = getLocalFilePath(file);
       const res = await fetch(
-        `${BASE_URL}/projects/${activeProjectId}/upload-capture?name=${encodeURIComponent(file.name)}`,
-        {
-          method: 'POST',
-          body: file,
-        }
+        url,
+        sourcePath
+          ? {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sourcePath }),
+            }
+          : {
+              method: 'POST',
+              body: file,
+            }
       );
       const data = await res.json();
       if (data && data.capturePath) {
         setCapturePath(data.capturePath);
-        setConnection({ state: 'connected', message: 'Capture uploaded' });
+        setConnection({ state: 'connected', message: data.copied ? 'Capture copied' : 'Capture uploaded' });
         loadProject(activeProjectId);
       } else {
         setConnection({ state: 'disconnected', message: 'Upload failed' });
@@ -1247,13 +1330,11 @@ const DebugPanel = () => {
           <Sidebar
             connection={connection}
             onOpenSettings={() => setSettingsOpen(true)}
+            onOpenProject={handleOpenProject}
             onCreateProject={handleCreateProject}
-            onToggleOpenPanel={() => setProjectPanelOpen(prev => !prev)}
-            openPanel={projectPanelOpen}
             onSelectProject={handleSelectProject}
             onRefreshProjects={refreshProjects}
             loadingProjects={loadingProjects}
-            onImportProject={handleImportProject}
             importing={importingProject}
             projects={projects}
             activeProject={activeProject}
@@ -1375,6 +1456,30 @@ const DebugPanel = () => {
           </div>
         </div>
       )}
+      {/* @ts-expect-error webkitdirectory is supported in Chromium-based browsers */}
+      <input
+        ref={openProjectInputRef}
+        type="file"
+        className="hidden"
+        multiple
+        webkitdirectory="true"
+        onChange={e => {
+          handleOpenProjectInput(e.target.files);
+          e.currentTarget.value = '';
+        }}
+      />
+      {/* @ts-expect-error webkitdirectory is supported in Chromium-based browsers */}
+      <input
+        ref={createProjectInputRef}
+        type="file"
+        className="hidden"
+        multiple
+        webkitdirectory="true"
+        onChange={e => {
+          handleCreateProjectInput(e.target.files);
+          e.currentTarget.value = '';
+        }}
+      />
     </div>
   );
 };

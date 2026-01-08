@@ -33,6 +33,31 @@
   - `slice` (integer, optional, default=0)
 - **返回**：`output_path` 字符串。
 
+## copy_capture
+- **描述**：将本地捕获文件复制到目标路径（可覆盖）。
+- **参数**：
+  - `source_path` (string, required)：源文件路径。
+  - `dest_path` (string, required)：目标文件路径。
+  - `overwrite` (boolean, optional, default=true)：目标存在时是否覆盖。
+- **返回**：`{ sourcePath, destPath, overwritten }`
+
+## analyze_nan_inf
+- **描述**：对指定像素的 Pixel History 进行 NaN/Inf 异常分析。
+- **参数**：
+  - `capture_path` (string, required)
+  - `texture_id` (integer, required)：`ResourceId` 数值。
+  - `x`, `y` (integer, required)：像素坐标。
+  - `sample` (integer, optional, default=0)：采样索引。
+- **返回**：`[{ eventId, color: [r,g,b,a] }]`
+
+## geometry_anomalies
+- **描述**：检测指定 drawcall 的几何异常（非法位置/UV 越界）。
+- **参数**：
+  - `capture_path` (string, required)
+  - `event_id` (integer, required)
+  - `mesh_slot` (integer, optional, default=0)
+- **返回**：`[{ index, position?: [x,y,z,w], uv?: [u,v], reason }]`
+
 ## get_pipeline_state
 - **描述**：汇总指定 drawcall 的帧缓冲附件，便于前端 Canvas 展示。
 - **参数**：
@@ -96,8 +121,11 @@
 - **返回**：`{ project: { id, name, createdAt, updatedAt, captures } }`
 
 ### POST /projects/:id/upload-capture?name=<rdc>
-- **描述**：上传 `.rdc` 到项目目录的 `captures/`
-- **返回**：`{ capturePath: string }`（项目内相对路径）
+- **描述**：上传 `.rdc` 到项目目录的 `captures/`，支持文件流或 JSON 路径复制。
+- **入参**：
+  - 直接上传文件流（`Content-Type` 为 `application/octet-stream` 等）。
+  - JSON：`{ sourcePath: string }`（后端调用本地 Agent 复制，并覆盖同名文件）。
+- **返回**：`{ capturePath: string, copied?: boolean }`（项目内相对路径）
 
 ### GET /projects/:id/history
 - **返回**：`{ version, submissions, messages }`
@@ -121,10 +149,10 @@
 - **返回**：`{ models: [{ id, label, role }], defaultPlanner: string, defaultAction: string }`
 
 ### GET /settings
-- **描述**：获取后端已保存的模型与 Key 状态（不返回明文 Key）。
-- **返回**：`{ hasApiKey: boolean, plannerModel: string, actionModel: string }`
+- **描述**：获取后端已保存的 Key 状态（不返回明文 Key）。
+- **返回**：`{ hasApiKey: boolean }`
 
 ### PUT /settings
-- **描述**：保存模型与 API Key 到 `runtime/config/.env`。
-- **入参**：`{ apiKey?: string, plannerModel?: string, actionModel?: string }`
-- **返回**：`{ ok: true, hasApiKey: boolean, plannerModel: string, actionModel: string }`
+- **描述**：保存 API Key 到 `runtime/config/.env`。
+- **入参**：`{ apiKey?: string }`
+- **返回**：`{ ok: true, hasApiKey: boolean }`

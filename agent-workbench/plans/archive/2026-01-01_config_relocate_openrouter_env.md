@@ -2,7 +2,7 @@
 
 ---
 id: plan_config_relocate_openrouter_env
-status: draft
+status: done
 date: 2026-01-01
 tags:
   - area:orchestrator
@@ -23,16 +23,16 @@ touchpoints:
   - env
   - docs
 acceptance:
-  - item: Orchestrator 能从 `runtime/config/.env` 读取 `OPENROUTER_API_KEY/PLANNER_MODEL/EXPLAINER_MODEL`，且未配置时仍支持环境变量兜底。
-    done: false
-  - item: 前端 Settings 应用后会调用后端保存配置，重启前端页面后可通过后端配置恢复模型默认值；API Key 不再写入 localStorage。
-    done: false
+  - item: Orchestrator 能从 `runtime/config/.env` 读取 `OPENROUTER_API_KEY`，且未配置时仍支持环境变量兜底。
+    done: true
+  - item: 前端 Settings 应用后会调用后端保存 API Key；API Key 不再写入 localStorage。
+    done: true
   - item: `/nl-debug` 在未提供 `openrouterKey` 时可使用后端持久化的 Key 正常调用。
-    done: false
+    done: true
   - item: `config/` 迁移到 `runtime/config/` 后，README 与 `.gitignore` 的路径说明同步更新。
-    done: false
+    done: true
   - item: 删除 `config/openrouter.example.json`，且相关文档不再引用它。
-    done: false
+    done: true
 risks:
   - 迁移 `config/` 后可能遗留路径引用，导致启动时读不到配置。
   - 把 API Key 透传给前端会有泄露风险，需要明确只返回“是否已保存”的标记。

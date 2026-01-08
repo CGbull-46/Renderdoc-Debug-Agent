@@ -1,14 +1,14 @@
 @echo off
 setlocal enabledelayedexpansion
 
-REM RenderDoc Debug Agent - Frontend Preview Launcher
-REM Double-click to start the frontend UI on http://localhost:3000
+REM RenderDoc Debug Agent - Full Stack Launcher
+REM Double-click to start MCP Agent + Orchestrator + Frontend UI on http://localhost:3000
 
-title RenderDoc Debug Agent - Frontend Preview
+title RenderDoc Debug Agent - Full Stack
 
 echo.
 echo ========================================
-echo RenderDoc Debug Agent - Frontend Preview  
+echo RenderDoc Debug Agent - Full Stack  
 echo ========================================
 echo.
 
@@ -40,12 +40,67 @@ exit /b 1
 echo [OK] Found npm: %NPM_CMD%
 echo.
 
+REM Try to find python
+set "PY_CMD="
+where python >nul 2>&1
+if not errorlevel 1 set "PY_CMD=python" & goto python_found
+where py >nul 2>&1
+if not errorlevel 1 set "PY_CMD=py -3" & goto python_found
+
+:python_not_found
+echo [ERROR] python not found!
+echo.
+echo Please do ONE of the following:
+echo   1. Install Python 3.x from https://www.python.org/
+echo   2. Ensure python or py is available in PATH
+echo.
+echo This window will stay open. Close it when done.
+echo.
+pause
+exit /b 1
+
+:python_found
+echo [OK] Found Python: %PY_CMD%
+echo.
+
 REM Use quoted command only for paths with spaces; avoid call "npm" which breaks in cmd
 if /I "%NPM_CMD%"=="npm" (
 	set "NPM_CALL=npm"
 ) else (
 	set "NPM_CALL=\"%NPM_CMD%\""
 )
+
+REM Start local MCP agent
+echo [STEP 1/4] Starting MCP Agent on ws://127.0.0.1:8765
+echo.
+start "RenderDoc MCP Agent" cmd /k "cd /d \"%~dp0\" && %PY_CMD% -m runtime.agent"
+
+REM Go to orchestrator directory
+cd /d "%~dp0runtime\\orchestrator"
+if errorlevel 1 goto orchestrator_missing
+
+echo [OK] Orchestrator directory: %CD%
+echo.
+
+REM Install dependencies if needed
+if exist node_modules goto orch_deps_installed
+echo [STEP 2/4] Installing orchestrator dependencies (first time only, please wait)...
+echo.
+call %NPM_CALL% install
+if errorlevel 1 goto npm_install_failed
+echo.
+echo [OK] Orchestrator dependencies installed
+echo.
+goto start_orchestrator
+
+:orch_deps_installed
+echo [SKIP] Orchestrator dependencies already installed
+echo.
+
+:start_orchestrator
+echo [STEP 2/4] Starting Orchestrator on http://localhost:8080
+echo.
+start "RenderDoc Orchestrator" cmd /k "cd /d \"%~dp0runtime\\orchestrator\" && node server.js"
 
 REM Go to frontend directory
 cd /d "%~dp0runtime\\frontend"
@@ -56,7 +111,7 @@ echo.
 
 REM Install dependencies if needed
 if exist node_modules goto deps_installed
-echo [STEP 1/2] Installing dependencies (first time only, please wait)...
+echo [STEP 3/4] Installing frontend dependencies (first time only, please wait)...
 echo.
 call %NPM_CALL% install
 if errorlevel 1 goto npm_install_failed
@@ -72,7 +127,7 @@ echo.
 :start_server
 
 REM Start the dev server
-echo [STEP 2/2] Starting Vite dev server on http://localhost:3000
+echo [STEP 4/4] Starting Vite dev server on http://localhost:3000
 echo.
 echo Opening browser in 3 seconds...
 echo Press Ctrl+C in this window to stop the server
@@ -102,6 +157,12 @@ goto done
 
 :frontend_missing
 echo [ERROR] Cannot find frontend directory
+echo.
+pause
+exit /b 1
+
+:orchestrator_missing
+echo [ERROR] Cannot find orchestrator directory
 echo.
 pause
 exit /b 1

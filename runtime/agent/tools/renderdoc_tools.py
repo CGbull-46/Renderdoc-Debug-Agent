@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
@@ -142,6 +143,23 @@ class RenderdocTools:
             save_data.slice.sliceIndex = slice
             cap.controller.SaveTexture(save_data, output_path)
             return output_path
+
+    def copy_capture(self, source_path: str, dest_path: str, overwrite: bool = True) -> Dict[str, Any]:
+        """Copy a capture file to a destination path."""
+
+        source = Path(source_path)
+        if not source.exists() or not source.is_file():
+            raise FileNotFoundError(f"Capture source not found: {source_path}")
+
+        dest = Path(dest_path)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+
+        overwritten = dest.exists()
+        if overwritten and not overwrite:
+            raise FileExistsError(f"Destination exists: {dest_path}")
+
+        shutil.copy2(source, dest)
+        return {"sourcePath": str(source), "destPath": str(dest), "overwritten": overwritten}
 
     def analyze_nan_inf(self, capture_path: str, texture_id: int, x: int, y: int, sample: int = 0) -> List[Dict[str, Any]]:
         """Analyze NaN/Inf anomalies in pixel history for a given location."""
@@ -287,6 +305,18 @@ class RenderdocTools:
                     "required": ["capture_path", "resource_id", "output_path"],
                 },
             },
+            "copy_capture": {
+                "description": "Copy a capture file to a destination path",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "source_path": {"type": "string"},
+                        "dest_path": {"type": "string"},
+                        "overwrite": {"type": "boolean", "default": True},
+                    },
+                    "required": ["source_path", "dest_path"],
+                },
+            },
             "analyze_nan_inf": {
                 "description": "Analyze NaN/Inf anomalies for a single pixel via PixelHistory",
                 "parameters": {
@@ -337,6 +367,8 @@ class RenderdocTools:
             return self.enumerate_counters(**payload)
         if tool_name == "save_texture":
             return self.save_texture(**payload)
+        if tool_name == "copy_capture":
+            return self.copy_capture(**payload)
         if tool_name == "analyze_nan_inf":
             return self.analyze_nan_inf(**payload)
         if tool_name == "geometry_anomalies":
