@@ -1,13 +1,11 @@
 {
-  "defaultPlanner": "gpt-5.2",
+  "defaultPlanner": "claude-opus-4.5",
   "defaultAction": "gpt-5.2",
   "models": [
     { "id": "gpt-5.2", "label": "GPT-5.2", "role": "both" },
     { "id": "grok-4.1", "label": "Grok 4.1", "role": "both" },
     { "id": "gemini-3.0-pro", "label": "Gemini 3.0 Pro", "role": "both" },
     { "id": "gemini-3.0-flash", "label": "Gemini 3.0 Flash", "role": "both" },
-    { "id": "claude-opus-4.5", "label": "Claude Opus 4.5", "role": "both" },
-    { "id": "qwen-3.0-max", "label": "Qwen 3.0 Max", "role": "both" },
-    { "id": "kimi-k2", "label": "Kimi K2", "role": "both" }
+    { "id": "claude-opus-4.5", "label": "Claude Opus 4.5", "role": "both" }
   ]
 }

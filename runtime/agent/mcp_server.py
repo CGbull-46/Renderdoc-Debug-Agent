@@ -40,7 +40,7 @@ class MCPServer:
         self.host = host
         self.port = port
 
-    async def _handle(self, websocket):
+    async def _handle(self, websocket, path=None):
         async for raw in websocket:
             try:
                 msg = json.loads(raw)

@@ -79,10 +79,15 @@ if /I "%NPM_CMD%"=="npm" (
 	set "NPM_CALL=\"%NPM_CMD%\""
 )
 
-REM Start local MCP agent
-echo [STEP 1/4] Starting MCP Agent on ws://127.0.0.1:8765
+REM Pick an available MCP port (default 8765, fallback 8766/8767)
+call :pick_mcp_port 8765 8766 8767
+echo [OK] MCP port: %MCP_PORT%
 echo.
-start "RenderDoc MCP Agent" "%ROOT_DIR%\runtime\agent\start_mcp_agent.cmd" "%PY_CMD%" "%PY_ARGS%"
+
+REM Start local MCP agent
+echo [STEP 1/4] Starting MCP Agent on ws://127.0.0.1:%MCP_PORT%
+echo.
+start "RenderDoc MCP Agent" /D "%ROOT_DIR%\runtime\agent" start_mcp_agent.cmd
 
 REM Go to orchestrator directory
 cd /d "%ROOT_DIR%\runtime\orchestrator"
@@ -107,7 +112,7 @@ echo [SKIP] Orchestrator dependencies already installed
 echo.
 
 :start_orchestrator
-echo [STEP 2/4] Starting Orchestrator on http://localhost:8080
+echo [STEP 2/4] Starting Orchestrator on http://localhost:8080 (MCP port %MCP_PORT%)
 echo.
 start "RenderDoc Orchestrator" "%ROOT_DIR%\runtime\orchestrator\start_orchestrator.cmd"
 
@@ -179,4 +184,17 @@ exit /b 1
 :done
 
 endlocal
+exit /b 0
+
+:pick_mcp_port
+set "MCP_PORT="
+for %%P in (%*) do (
+  netstat -ano | findstr /R /C:":%%P .*LISTENING" >nul
+  if errorlevel 1 (
+    set "MCP_PORT=%%P"
+    goto :eof
+  )
+)
+set "MCP_PORT=8765"
+goto :eof
 

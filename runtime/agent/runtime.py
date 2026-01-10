@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+import sys
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List
 
@@ -25,8 +27,23 @@ class RenderdocDebugAgent:
 
     def __init__(self, config: AgentConfig):
         self.config = config
-        self.rd = load_renderdoc(config.renderdoc_python_path)
-        self.tools = RenderdocTools(self.rd)
+        self.rd = None
+        self.renderdoc_error = None
+        try:
+            self.rd = load_renderdoc(config.renderdoc_python_path)
+            self.tools = RenderdocTools(self.rd)
+        except ImportError as exc:
+            # Allow MCP server to start even if RenderDoc bindings are missing.
+            self.renderdoc_error = str(exc)
+            self.tools = RenderdocTools()
+            self._warn(f"RenderDoc bindings not found: {self.renderdoc_error}")
+
+    @staticmethod
+    def _warn(message: str) -> None:
+        if os.environ.get("NO_COLOR"):
+            print(f"[WARN] {message}")
+            return
+        print(f"\x1b[33m[WARN] {message}\x1b[0m")
 
     def list_mcp_tools(self) -> Dict[str, Any]:
         """Return JSON schemas for wiring into the Model Context Protocol.

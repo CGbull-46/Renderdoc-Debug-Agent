@@ -6,6 +6,7 @@ import importlib
 import os
 import platform
 import sys
+from pathlib import Path
 from dataclasses import dataclass
 from types import ModuleType
 from typing import Optional
@@ -24,11 +25,22 @@ class RenderdocModule:
         return bool(self.module.LocalReplaySupport())
 
 
+def _repo_thirdparty_renderdoc() -> Optional[str]:
+    repo_root = Path(__file__).resolve().parents[2]
+    candidate = repo_root / "thirdparty" / "renderdoc"
+    if candidate.is_dir():
+        return str(candidate)
+    return None
+
+
 def _candidate_paths() -> list[str]:
     """Return OS-specific default search paths for the RenderDoc Python module."""
 
     system = platform.system()
     paths: list[str] = []
+    repo_local = _repo_thirdparty_renderdoc()
+    if repo_local:
+        paths.append(repo_local)
     if system == "Windows":
         # Typical installation path when RenderDoc is installed via the official installer.
         paths.extend(
@@ -44,6 +56,18 @@ def _candidate_paths() -> list[str]:
         # Linux paths vary by distribution; `/opt` is common for manual installs.
         paths.extend(["/opt/renderdoc/python", "/usr/share/renderdoc/python"])
     return paths
+
+
+def _add_dll_search_path(path: str) -> None:
+    if platform.system() != "Windows":
+        return
+    add_dll_directory = getattr(os, "add_dll_directory", None)
+    if add_dll_directory is None:
+        return
+    try:
+        add_dll_directory(path)
+    except OSError:
+        return
 
 
 def load_renderdoc(override_path: Optional[str] = None) -> RenderdocModule:
@@ -66,6 +90,7 @@ def load_renderdoc(override_path: Optional[str] = None) -> RenderdocModule:
 
     for path in search_paths:
         if path and os.path.isdir(path):
+            _add_dll_search_path(path)
             sys.path.append(path)
             try:
                 module = importlib.import_module("renderdoc")

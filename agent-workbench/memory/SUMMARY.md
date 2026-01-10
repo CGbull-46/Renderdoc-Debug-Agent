@@ -3,6 +3,24 @@
 用途：coding agent 启动时优先阅读本文件，用于快速决定是否需要加载某些 `entries/*` 以还原上下文。
 
 ## 最近变更（可 compact）
+- 2026-01-11：会话归档（待续），记录未闭环问题与下一步。详见 `agent-workbench/memory/entries/2026-01-11_session_archive.md`
+- 2026-01-11：内置 Python 的 pip 缺失时回退系统 pip 安装 websockets，并硬化 ABI 探测。详见 `agent-workbench/memory/entries/2026-01-11_bundled_python_pip_fallback.md`
+- 2026-01-11：内置 Python 缺失 `_pth` 时自动生成并设置 PYTHONHOME，避免 ABI 误报 unknown。详见 `agent-workbench/memory/entries/2026-01-11_bundled_python_pth_fix.md`
+- 2026-01-11：MCP Agent 固定优先使用 `thirdparty/renderdoc` bindings，并补充 README 说明。详见 `agent-workbench/memory/entries/2026-01-11_prefer_local_renderdoc.md`
+- 2026-01-10：MCP Agent 支持内置 Python（thirdparty/python）并自动补齐 pip/site-packages，修复 ABI 探测 unknown。详见 `agent-workbench/memory/entries/2026-01-10_bundled_python_runtime_bootstrap.md`
+- 2026-01-10：MCP Agent 优先使用 `thirdparty/python` 的内置 Python，并在 README 说明要求。详见 `agent-workbench/memory/entries/2026-01-10_bundled_python_prefer.md`
+- 2026-01-10：ABI 探测改为显式设置 RD_PYD 并由 Python 解析，避免 unknown。详见 `agent-workbench/memory/entries/2026-01-10_mcp_agent_abi_probe_env_fix.md`
+- 2026-01-10：ABI 探测改为 PowerShell 解析 renderdoc.pyd，告警统一黄色。详见 `agent-workbench/memory/entries/2026-01-10_mcp_agent_abi_probe_fix_ps.md`
+- 2026-01-10：修复 ABI 检测为 unknown 的问题并让警告显示为黄色。详见 `agent-workbench/memory/entries/2026-01-10_mcp_agent_abi_fix_and_warn_color.md`
+- 2026-01-10：MCP Agent ABI 检查日志改为始终输出，并追加 import error 细节。详见 `agent-workbench/memory/entries/2026-01-10_mcp_agent_abi_check_always_log.md`
+- 2026-01-10：MCP Agent 增加 Python ABI 匹配度日志与黄色警告，并清理 rdc 路径提示。详见 `agent-workbench/memory/entries/2026-01-10_mcp_agent_abi_log_and_path_cleanup.md`
+- 2026-01-10：启动时检测 RenderDoc bindings 的 Python ABI，必要时切换到匹配版本或提前报错。详见 `agent-workbench/memory/entries/2026-01-10_renderdoc_python_abi_check.md`
+- 2026-01-10：修复 MCP Agent 启动脚本 “batch label” 报错，内联 bindings 探测逻辑。详见 `agent-workbench/memory/entries/2026-01-10_mcp_agent_find_label_fix.md`
+- 2026-01-10：优先使用仓库 `thirdparty/renderdoc` 的 RenderDoc bindings，并同步 DLL search path。详见 `agent-workbench/memory/entries/2026-01-10_thirdparty_renderdoc_binding.md`
+- 2026-01-09：MCP Agent 启动时自动探测 renderdoc.pyd 并设置 RENDERDOC_PYTHON_PATH。详见 `agent-workbench/memory/entries/2026-01-09_renderdoc_binding_autodetect.md`
+- 2026-01-09：MCP Agent 启动前增加端口占用与 RenderDoc bindings 自检提示。详见 `agent-workbench/memory/entries/2026-01-09_mcp_agent_port_and_binding_check.md`
+- 2026-01-09：MCP Agent 启动时自检并自动安装 websockets，失败时保留窗口提示。详见 `agent-workbench/memory/entries/2026-01-09_mcp_agent_deps_install.md`
+- 2026-01-09：MCP Agent 启动参数解析修复，脚本内部自行探测 python。详见 `agent-workbench/memory/entries/2026-01-09_mcp_agent_start_args_fix.md`
 - 2026-01-09：拆分 MCP/Orchestrator 启动脚本，避免 cmd /k 引号解析错误。详见 `agent-workbench/memory/entries/2026-01-09_bat_start_cmd_split.md`
 - 2026-01-09：bat 启动改用 `start /D` 指定工作目录，避免 cmd /k 引号解析错误。详见 `agent-workbench/memory/entries/2026-01-09_bat_start_workdir_fix.md`
 - 2026-01-09：修复 bat 路径尾随反斜杠导致的 cd /d 失败。详见 `agent-workbench/memory/entries/2026-01-09_bat_trailing_slash_fix.md`

@@ -12,8 +12,14 @@
 2. 确保 RenderDoc Python 绑定可用：
    - 将 RenderDoc 的 `python/` 目录加入 `PYTHONPATH`，或
    - 设置环境变量 `RENDERDOC_PYTHON_PATH`。
-3. **快速预览**：双击运行 `start_debug_agent.bat`，自动启动 MCP Agent + Orchestrator + 前端 UI（http://localhost:3000）。
-4. **完整配置**（可选，用于 /nl-debug 等功能）：
+   - 若存在 `thirdparty/renderdoc/renderdoc.pyd`，启动脚本会优先使用该目录（覆盖外部路径）。
+3. （可选）使用内置 Python：如果存在 `thirdparty/python` 下的 `python.exe`（脚本会递归探测），启动脚本会优先使用它而非系统 Python。
+   - 运行 MCP Agent 只需要 embeddable Python 的运行时文件（如 `python.exe`/`pythonXX.dll`/`pythonXX.zip`/`pythonXX._pth` 与若干标准库扩展 `.pyd`）。
+   - `include/` 与 `pythonXX.lib` 主要用于编译 C/C++ 扩展（例如重建 RenderDoc bindings），对运行 MCP Agent 不是必需的。
+   - `pythonXX` 版本必须与 `renderdoc.pyd` 绑定一致（例如 bindings 依赖 `python36.dll` 就需要 Python 3.6 运行时）。
+   - 如果缺少 `pythonXX._pth`，启动脚本会自动生成并启用 `Lib\site-packages`，但仍建议使用完整的 embeddable 包目录结构。
+4. **快速预览**：双击运行 `start_debug_agent.bat`，自动启动 MCP Agent + Orchestrator + 前端 UI（http://localhost:3000）。
+5. **完整配置**（可选，用于 /nl-debug 等功能）：
    - 前端 Settings 填入 OpenRouter API Key 并 Apply（会写入 `runtime/config/.env`），或
    - 手动创建 `runtime/config/.env`，设置 `OPENROUTER_API_KEY`。
    - 如不使用一键脚本，可按下方"手动启动"逐个启动组件。
