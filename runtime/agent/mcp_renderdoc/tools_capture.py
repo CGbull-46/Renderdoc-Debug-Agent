@@ -5,7 +5,6 @@ capture / action-tree functionality. They are intentionally thin and
 delegate most logic to RenderdocTools or session manager instances.
 """
 
-from __future__ import annotations
 
 from typing import Any, Dict
 

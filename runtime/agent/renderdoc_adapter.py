@@ -1,6 +1,5 @@
 """Cross-platform loader and helpers for RenderDoc's Python API."""
 
-from __future__ import annotations
 
 import importlib
 import os
@@ -9,7 +8,7 @@ import sys
 from pathlib import Path
 from dataclasses import dataclass
 from types import ModuleType
-from typing import Optional
+from typing import List, Optional
 
 
 @dataclass
@@ -33,11 +32,11 @@ def _repo_thirdparty_renderdoc() -> Optional[str]:
     return None
 
 
-def _candidate_paths() -> list[str]:
+def _candidate_paths() -> List[str]:
     """Return OS-specific default search paths for the RenderDoc Python module."""
 
     system = platform.system()
-    paths: list[str] = []
+    paths: List[str] = []
     repo_local = _repo_thirdparty_renderdoc()
     if repo_local:
         paths.append(repo_local)

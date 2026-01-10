@@ -10,7 +10,6 @@ Environment variables:
     MCP_PORT               Port for the MCP WebSocket server (default: 8765).
 """
 
-from __future__ import annotations
 
 import os
 

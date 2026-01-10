@@ -79,8 +79,13 @@ if /I "%NPM_CMD%"=="npm" (
 	set "NPM_CALL=\"%NPM_CMD%\""
 )
 
-REM Pick an available MCP port (default 8765, fallback 8766/8767)
-call :pick_mcp_port 8765 8766 8767
+REM Pick an available MCP port (default 8765, fallback range)
+call :pick_mcp_port 8765 8766 8767 8768 8769 8770 8771 8772 8773 8774 8775 8776 8777 8778 8779 8780 8781 8782 8783 8784 8785
+if not defined MCP_PORT_FOUND (
+  powershell -NoProfile -Command "Write-Host '[ERROR] No free MCP port found; tried 8765-8785. Set MCP_PORT to another value.' -ForegroundColor Red" || echo [ERROR] No free MCP port found; tried 8765-8785. Set MCP_PORT to another value.
+  pause
+  exit /b 1
+)
 echo [OK] MCP port: %MCP_PORT%
 echo.
 
@@ -188,13 +193,14 @@ exit /b 0
 
 :pick_mcp_port
 set "MCP_PORT="
+set "MCP_PORT_FOUND="
 for %%P in (%*) do (
   netstat -ano | findstr /R /C:":%%P .*LISTENING" >nul
   if errorlevel 1 (
     set "MCP_PORT=%%P"
+    set "MCP_PORT_FOUND=1"
     goto :eof
   )
 )
-set "MCP_PORT=8765"
 goto :eof
 

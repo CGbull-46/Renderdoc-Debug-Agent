@@ -3,6 +3,9 @@
 用途：coding agent 启动时优先阅读本文件，用于快速决定是否需要加载某些 `entries/*` 以还原上下文。
 
 ## 最近变更（可 compact）
+- 2026-01-11：扩展 MCP 端口回退范围至 8765-8785，full stack 无可用端口时报错并退出。详见 agent-workbench/memory/entries/2026-01-11_fix_mcp_port_range_fullstack.md
+- 2026-01-11：修复 MCP 端口占用与错误颜色提示，默认端口自动回退并统一 ERROR 红色输出。详见 agent-workbench/memory/entries/2026-01-11_fix_mcp_agent_port_and_error_color.md
+- 2026-01-11：修复 MCP Agent 在 Python 3.6 下的依赖/启动问题（cmd 变量展开、_pth 路径、dataclasses/asyncio.run 兼容），并补充验证记录。详见 agent-workbench/memory/entries/2026-01-11_fix_mcp_agent_py36.md
 - 2026-01-11：会话归档（待续），记录未闭环问题与下一步。详见 `agent-workbench/memory/entries/2026-01-11_session_archive.md`
 - 2026-01-11：内置 Python 的 pip 缺失时回退系统 pip 安装 websockets，并硬化 ABI 探测。详见 `agent-workbench/memory/entries/2026-01-11_bundled_python_pip_fallback.md`
 - 2026-01-11：内置 Python 缺失 `_pth` 时自动生成并设置 PYTHONHOME，避免 ABI 误报 unknown。详见 `agent-workbench/memory/entries/2026-01-11_bundled_python_pth_fix.md`

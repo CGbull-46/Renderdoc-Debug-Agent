@@ -1,6 +1,5 @@
 """Lightweight Model Context Protocol (MCP) server for RenderDoc tools."""
 
-from __future__ import annotations
 
 import asyncio
 import json
@@ -66,4 +65,13 @@ async def serve(tools: RenderdocTools, host: str = "127.0.0.1", port: int = 8765
 def serve_sync(tools: RenderdocTools, host: str = "127.0.0.1", port: int = 8765) -> None:
     """Blocking wrapper for environments without async runner."""
 
-    asyncio.run(serve(tools, host, port))
+    if hasattr(asyncio, "run"):
+        asyncio.run(serve(tools, host, port))
+        return
+    loop = asyncio.new_event_loop()
+    try:
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(serve(tools, host, port))
+    finally:
+        loop.close()
+        asyncio.set_event_loop(None)

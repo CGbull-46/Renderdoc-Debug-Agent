@@ -6,7 +6,6 @@ needed. For now this is a lightweight skeleton; tools that operate on
 file paths directly can continue to use RenderdocTools.
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Dict, Optional

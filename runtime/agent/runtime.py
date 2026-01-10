@@ -1,6 +1,5 @@
 """High-level runtime that connects LLM planning to RenderDoc tool execution."""
 
-from __future__ import annotations
 
 import asyncio
 import json
@@ -73,7 +72,17 @@ class RenderdocDebugAgent:
         await serve(self.tools, host=host, port=port)
 
     def run_mcp_server_sync(self, host: str = "127.0.0.1", port: int = 8765) -> None:
-        asyncio.run(self.run_mcp_server(host, port))
+        coro = self.run_mcp_server(host, port)
+        if hasattr(asyncio, "run"):
+            asyncio.run(coro)
+            return
+        loop = asyncio.new_event_loop()
+        try:
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(coro)
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
 
     def plan_prompt(self) -> str:
         """Return a condensed planner prompt snippet for quick experiments."""

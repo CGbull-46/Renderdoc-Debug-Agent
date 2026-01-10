@@ -11,7 +11,6 @@ This script demonstrates an end-to-end loop:
 It is intentionally small and synchronous for easier experimentation.
 """
 
-from __future__ import annotations
 
 import argparse
 import json
@@ -139,6 +138,18 @@ async def _call_mcp_tool(
         return data
 
 
+def _run_async(coro):
+    if hasattr(asyncio, "run"):
+        return asyncio.run(coro)
+    loop = asyncio.new_event_loop()
+    try:
+        asyncio.set_event_loop(loop)
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+        asyncio.set_event_loop(None)
+
+
 def run_once(
     question: str,
     capture_path: Optional[str],
@@ -156,7 +167,7 @@ def run_once(
     print("Planned tool call:")
     print(json.dumps({"tool": action.name, "arguments": action.arguments}, ensure_ascii=False, indent=2))
 
-    response = asyncio.run(_call_mcp_tool(host, port, action.name, action.arguments))
+    response = _run_async(_call_mcp_tool(host, port, action.name, action.arguments))
 
     print("\nMCP response:")
     print(json.dumps(response, ensure_ascii=False, indent=2))

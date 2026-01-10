@@ -1,6 +1,5 @@
 """Pipeline / resource-oriented MCP tool handlers."""
 
-from __future__ import annotations
 
 from typing import Any, Dict
 

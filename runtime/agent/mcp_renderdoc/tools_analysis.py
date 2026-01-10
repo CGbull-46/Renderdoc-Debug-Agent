@@ -1,6 +1,5 @@
 """Analysis-focused MCP tool handlers (pixel history, counters, etc.)."""
 
-from __future__ import annotations
 
 from typing import Any, Dict
 

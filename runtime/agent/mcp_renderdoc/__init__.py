@@ -5,7 +5,6 @@ connects them to the existing RenderdocTools implementation under
 runtime.agent.tools.renderdoc_tools.
 """
 
-from __future__ import annotations
 
 from typing import Any, Dict, List
 

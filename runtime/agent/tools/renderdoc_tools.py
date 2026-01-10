@@ -1,6 +1,5 @@
 """Thin MCP-friendly wrappers around common RenderDoc Python API calls."""
 
-from __future__ import annotations
 
 import json
 import math
