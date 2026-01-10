@@ -3,6 +3,7 @@
 用途：coding agent 启动时优先阅读本文件，用于快速决定是否需要加载某些 `entries/*` 以还原上下文。
 
 ## 最近变更（可 compact）
+- 2026-01-11：修复 ABI probe 正则误报，能够识别 python36.dll 并显示 match。详见 agent-workbench/memory/entries/2026-01-11_fix_abi_probe_regex.md
 - 2026-01-11：扩展 MCP 端口回退范围至 8765-8785，full stack 无可用端口时报错并退出。详见 agent-workbench/memory/entries/2026-01-11_fix_mcp_port_range_fullstack.md
 - 2026-01-11：修复 MCP 端口占用与错误颜色提示，默认端口自动回退并统一 ERROR 红色输出。详见 agent-workbench/memory/entries/2026-01-11_fix_mcp_agent_port_and_error_color.md
 - 2026-01-11：修复 MCP Agent 在 Python 3.6 下的依赖/启动问题（cmd 变量展开、_pth 路径、dataclasses/asyncio.run 兼容），并补充验证记录。详见 agent-workbench/memory/entries/2026-01-11_fix_mcp_agent_py36.md

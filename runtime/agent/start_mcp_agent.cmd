@@ -123,7 +123,7 @@ if defined RENDERDOC_PYTHON_PATH if exist "%RENDERDOC_PYTHON_PATH%\renderdoc.pyd
   powershell -NoProfile -Command "$p='%RD_PYD%'; if(Test-Path $p){$b=[IO.File]::ReadAllBytes($p); $s=[Text.Encoding]::ASCII.GetString($b); $m=[regex]::Match($s,'python\\d+\\.dll','IgnoreCase'); if($m.Success){$m.Value}}" > "%TMP_OUT%" 2>nul
   for /f "usebackq delims=" %%V in ("%TMP_OUT%") do set "RD_PYDLL=%%V"
   if /I "%RD_PYDLL%"=="unknown" (
-    "%PY_EXE%" %PY_ARGS% -c "import os, re, pathlib; p=os.environ.get('RD_PYD'); data=pathlib.Path(p).read_bytes() if p else b''; m=re.findall(rb'python\\d+\\.dll', data.lower()); print(m[0].decode('ascii') if m else '')" > "%TMP_OUT%" 2>nul
+    "%PY_EXE%" %PY_ARGS% -c "import os, re, pathlib; p=os.environ.get('RD_PYD'); data=pathlib.Path(p).read_bytes() if p else b''; m=re.findall(rb'python\d+\.dll', data.lower()); print(m[0].decode('ascii') if m else '')" > "%TMP_OUT%" 2>nul
     for /f "usebackq delims=" %%V in ("%TMP_OUT%") do set "RD_PYDLL=%%V"
   )
 )
